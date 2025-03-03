@@ -108,7 +108,6 @@ class UnetModule(MriModule):
         output = self(batch.image)
         mean = batch.mean.unsqueeze(1).unsqueeze(2)
         std = batch.std.unsqueeze(1).unsqueeze(2)
-        print(batch.fname[0])
         self.val_outputs[batch.fname[0]].append((batch.slice_num, output * std + mean))
 
         return {
@@ -129,7 +128,9 @@ class UnetModule(MriModule):
             out.detach().cpu().numpy() if isinstance(out, torch.Tensor) else out  
             for _, out in sorted(self.val_outputs[fname])
             ])
-        fastmri.save_reconstructions(self.val_outputs, self.output_path /"reconstructions_val")
+        fastmri.save_reconstructions(self.val_outputs, self.output_path /"reconstructions_val")        
+        self.val_outputs = defaultdict(list)
+
 
     def test_step(self, batch, batch_idx):
         output = self.forward(batch.image)
@@ -151,6 +152,8 @@ class UnetModule(MriModule):
             for _, out in sorted(self.test_outputs[fname])
             ])
         fastmri.save_reconstructions(self.test_outputs, self.output_path / "reconstructions_test")
+        self.test_outputs = defaultdict(list)
+
 
     def configure_optimizers(self):
         optim = torch.optim.RMSprop(
