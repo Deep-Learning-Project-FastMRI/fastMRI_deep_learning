@@ -13,7 +13,9 @@ from torch.nn import functional as F
 from fastmri.models import Unet
 
 from .mri_module import MriModule
-
+from collections import defaultdict
+import numpy as np
+import fastmri
 
 class UnetModule(MriModule):
     """
@@ -36,6 +38,7 @@ class UnetModule(MriModule):
         lr_step_size=40,
         lr_gamma=0.1,
         weight_decay=0.0,
+        output_path="",
         **kwargs,
     ):
         """
@@ -69,7 +72,11 @@ class UnetModule(MriModule):
         self.lr_step_size = lr_step_size
         self.lr_gamma = lr_gamma
         self.weight_decay = weight_decay
+        self.train_outputs = defaultdict(list)
+        self.val_outputs = defaultdict(list)
+        self.test_outputs = defaultdict(list)
 
+        self.output_path = output_path
         self.unet = Unet(
             in_chans=self.in_chans,
             out_chans=self.out_chans,
@@ -80,19 +87,29 @@ class UnetModule(MriModule):
 
     def forward(self, image):
         return self.unet(image.unsqueeze(1)).squeeze(1)
+  
 
     def training_step(self, batch, batch_idx):
+       
         output = self(batch.image)
+       
         loss = F.l1_loss(output, batch.target)
-
+        
         self.log("loss", loss.detach())
-
-        return loss
+        return {
+            "batch_idx": batch_idx,
+            "fname": batch.fname,
+            "slice_num": batch.slice_num,
+            "max_value": batch.max_value,
+            "loss": F.l1_loss(output, batch.target),
+        }
 
     def validation_step(self, batch, batch_idx):
         output = self(batch.image)
         mean = batch.mean.unsqueeze(1).unsqueeze(2)
         std = batch.std.unsqueeze(1).unsqueeze(2)
+        print(batch.fname[0])
+        self.val_outputs[batch.fname[0]].append((batch.slice_num, output * std + mean))
 
         return {
             "batch_idx": batch_idx,
@@ -104,16 +121,36 @@ class UnetModule(MriModule):
             "val_loss": F.l1_loss(output, batch.target),
         }
 
+
+    def validation_epoch_end(self, outputs):
+        # save outputs
+        for fname in self.val_outputs:
+            self.val_outputs[fname] = np.stack([
+            out.detach().cpu().numpy() if isinstance(out, torch.Tensor) else out  
+            for _, out in sorted(self.val_outputs[fname])
+            ])
+        fastmri.save_reconstructions(self.val_outputs, self.output_path /"reconstructions_val")
+
     def test_step(self, batch, batch_idx):
         output = self.forward(batch.image)
         mean = batch.mean.unsqueeze(1).unsqueeze(2)
         std = batch.std.unsqueeze(1).unsqueeze(2)
+        self.test_outputs[batch.fname[0]].append((batch.slice_num, output * std + mean))
 
         return {
             "fname": batch.fname,
             "slice": batch.slice_num,
             "output": (output * std + mean).cpu().numpy(),
         }
+
+    def test_epoch_end(self, outputs):
+        # save outputs
+        for fname in self.test_outputs:
+            self.test_outputs[fname] = np.stack([
+            out.detach().cpu().numpy() if isinstance(out, torch.Tensor) else out  
+            for _, out in sorted(self.test_outputs[fname])
+            ])
+        fastmri.save_reconstructions(self.test_outputs, self.output_path / "reconstructions_test")
 
     def configure_optimizers(self):
         optim = torch.optim.RMSprop(

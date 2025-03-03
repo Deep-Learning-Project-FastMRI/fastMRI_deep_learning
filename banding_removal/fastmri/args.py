@@ -257,7 +257,7 @@ class Args(argparse.ArgumentParser):
                           help='Path to the directory where dicoms should be saved')
         self.add_argument('--save_ground_truth', default=False, type=bool,
                           help='Whether to save DICOMs of ground truth images (default=False)')
-        self.add_argument('--reconstruct_all', default=False, type=bool,
+        self.add_argument('--reconstruct_all', default=True, type=bool,
                           help='Save DICOMs of reconstructions for every test case.'
                             'Default is to only save the six common test cases'
                             'used in the image review sessions.')

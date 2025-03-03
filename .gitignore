@@ -21,3 +21,7 @@ lightning_logs/
 build/
 dist/
 fastmri/_version.py
+data/
+fastmri_examples/unet/reconstructions/
+knee_singlecoil_train.tar.xz
+fastmri_raw_data_manifest/v2.0/

@@ -10,6 +10,10 @@ import pathlib
 from argparse import ArgumentParser
 
 import pytorch_lightning as pl
+import fastmri
+import fastmri.data.transforms as T
+from fastmri.data import SliceDataset
+from fastmri.models import Unet
 
 from fastmri.data.mri_data import fetch_dir
 from fastmri.data.subsample import create_mask_for_mask_type
@@ -43,6 +47,7 @@ def cli_main(args):
         sample_rate=args.sample_rate,
         batch_size=args.batch_size,
         num_workers=args.num_workers,
+        use_dataset_cache_file=False,
         distributed_sampler=(args.accelerator in ("ddp", "ddp_cpu")),
     )
 
@@ -59,13 +64,17 @@ def cli_main(args):
         lr_step_size=args.lr_step_size,
         lr_gamma=args.lr_gamma,
         weight_decay=args.weight_decay,
+        output_path = pathlib.Path("reconstructions")
     )
+    
+    print("Train dataset size", len(data_module.train_dataloader().dataset))
+    print("Val dataset size", len(data_module.val_dataloader().dataset))
+    print("Test dataset size", len(data_module.test_dataloader().dataset))
 
     # ------------
     # trainer
     # ------------
     trainer = pl.Trainer.from_argparse_args(args)
-
     # ------------
     # run
     # ------------
@@ -82,8 +91,8 @@ def build_args():
 
     # basic args
     path_config = pathlib.Path("../../fastmri_dirs.yaml")
-    num_gpus = 2
-    backend = "ddp"
+    num_gpus = 1
+    backend = None if num_gpus == 1 else "ddp"
     batch_size = 1 if backend == "ddp" else num_gpus
 
     # set defaults based on optional directory config
@@ -125,7 +134,7 @@ def build_args():
     # data config with path to fastMRI data and batch size
     parser = FastMriDataModule.add_data_specific_args(parser)
     parser.set_defaults(data_path=data_path, batch_size=batch_size, test_path=None)
-
+    print(parser)
     # module config
     parser = UnetModule.add_model_specific_args(parser)
     parser.set_defaults(
@@ -150,9 +159,11 @@ def build_args():
         deterministic=True,  # makes things slower, but deterministic
         default_root_dir=default_root_dir,  # directory for logs and checkpoints
         max_epochs=50,  # max number of epochs
+        log_every_n_steps=1,
     )
 
     args = parser.parse_args()
+    print(args)
 
     # configure checkpointing in checkpoint_dir
     checkpoint_dir = args.default_root_dir / "checkpoints"
