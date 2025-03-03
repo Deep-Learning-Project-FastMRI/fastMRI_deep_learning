@@ -109,7 +109,8 @@ class UnetModule(MriModule):
         mean = batch.mean.unsqueeze(1).unsqueeze(2)
         std = batch.std.unsqueeze(1).unsqueeze(2)
         self.val_outputs[batch.fname[0]].append((batch.slice_num, output * std + mean))
-
+        val_loss = F.l1_loss(output, batch.target)
+        self.log("val_loss", val_loss)
         return {
             "batch_idx": batch_idx,
             "fname": batch.fname,
