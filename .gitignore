@@ -13,7 +13,6 @@ logs/
 add_all_headers.py
 add_header.py
 *fair_cluster*
-fastmri_dirs.yaml
 dataset_cache.pkl
 .mypy_cache/
 lightning_logs/
@@ -26,3 +25,5 @@ fastmri_examples/unet/reconstructions/
 knee_singlecoil_train.tar.xz
 fastmri_raw_data_manifest/v2.0/
 fastmri_examples/unet/unet_demo/checkpoints
+fastmri_examples/unet/nohup.out
+fastmri_examples/unet/unet/unet_demo/checkpoints/epoch=41-step=1459164.ckpt
