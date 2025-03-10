@@ -26,3 +26,6 @@ fastmri_examples/unet/reconstructions/
 knee_singlecoil_train.tar.xz
 fastmri_raw_data_manifest/v2.0/
 fastmri_examples/unet/unet_demo/checkpoints
+knee_data
+subsample_data_test.tar.gz
+subsample_data_val.tar.gz
