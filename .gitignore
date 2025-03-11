@@ -27,3 +27,6 @@ fastmri_raw_data_manifest/v2.0/
 fastmri_examples/unet/unet_demo/checkpoints
 fastmri_examples/unet/nohup.out
 fastmri_examples/unet/unet/unet_demo/checkpoints/epoch=41-step=1459164.ckpt
+fastmri_examples/unet/unet/unet_demo/checkpoints/
+subsample_data/
+fastmri_dirs.yaml
