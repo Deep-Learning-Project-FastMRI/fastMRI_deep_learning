@@ -18,7 +18,7 @@ from fastmri.models import Unet
 from fastmri.data.mri_data import fetch_dir
 from fastmri.data.subsample import create_mask_for_mask_type
 from fastmri.data.transforms import UnetDataTransform
-from fastmri.pl_modules import FastMriDataModule, UnetModule
+from fastmri.pl_modules import FastMriDataModule, UnetModule, UnetModuleManual
 
 
 def cli_main(args):
@@ -54,18 +54,34 @@ def cli_main(args):
     # ------------
     # model
     # ------------
-    model = UnetModule(
-        in_chans=args.in_chans,
-        out_chans=args.out_chans,
-        chans=args.chans,
-        num_pool_layers=args.num_pool_layers,
-        drop_prob=args.drop_prob,
-        lr=args.lr,
-        lr_step_size=args.lr_step_size,
-        lr_gamma=args.lr_gamma,
-        weight_decay=args.weight_decay,
-        output_path = pathlib.Path("reconstructions")
-    )
+
+    if args.experiment_mode == "benchmark":
+        model = UnetModule(
+            in_chans=args.in_chans,
+            out_chans=args.out_chans,
+            chans=args.chans,
+            num_pool_layers=args.num_pool_layers,
+            drop_prob=args.drop_prob,
+            lr=args.lr,
+            lr_step_size=args.lr_step_size,
+            lr_gamma=args.lr_gamma,
+            weight_decay=args.weight_decay,
+            output_path = pathlib.Path("reconstructions")
+        )
+    else:
+        model = UnetModuleManual(
+            in_chans=args.in_chans,
+            out_chans=args.out_chans,
+            chans=args.chans,
+            num_pool_layers=args.num_pool_layers,
+            drop_prob=args.drop_prob,
+            lr=args.lr,
+            lr_step_size=args.lr_step_size,
+            lr_gamma=args.lr_gamma,
+            weight_decay=args.weight_decay,
+            output_path = pathlib.Path("reconstructions")
+        )
+
     
     print("Train dataset size", len(data_module.train_dataloader().dataset))
     print("Val dataset size", len(data_module.val_dataloader().dataset))
@@ -104,6 +120,14 @@ def build_args():
         "--mode",
         default="train",
         choices=("train", "test"),
+        type=str,
+        help="Operation mode",
+    )
+
+    parser.add_argument(
+        "--experiment_mode",
+        default="benchmark",
+        choices=("benchmark", "manual"),
         type=str,
         help="Operation mode",
     )
