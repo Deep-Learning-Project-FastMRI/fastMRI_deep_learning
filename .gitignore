@@ -13,7 +13,6 @@ logs/
 add_all_headers.py
 add_header.py
 *fair_cluster*
-fastmri_dirs.yaml
 dataset_cache.pkl
 .mypy_cache/
 lightning_logs/
@@ -29,3 +28,8 @@ fastmri_examples/unet/unet_demo/checkpoints
 knee_data
 subsample_data_test.tar.gz
 subsample_data_val.tar.gz
+fastmri_examples/unet/nohup.out
+fastmri_examples/unet/unet/unet_demo/checkpoints/epoch=41-step=1459164.ckpt
+fastmri_examples/unet/unet/unet_demo/checkpoints/
+subsample_data/
+fastmri_dirs.yaml
