@@ -33,3 +33,4 @@ fastmri_examples/unet/unet/unet_demo/checkpoints/epoch=41-step=1459164.ckpt
 fastmri_examples/unet/unet/unet_demo/checkpoints/
 subsample_data/
 fastmri_dirs.yaml
+fastmri_examples/unet/wandb/
