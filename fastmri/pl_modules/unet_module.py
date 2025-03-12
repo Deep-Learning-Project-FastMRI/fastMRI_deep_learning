@@ -124,6 +124,8 @@ class UnetModule(MriModule):
 
     def validation_epoch_end(self, outputs):
         # save outputs
+        super().validation_epoch_end(outputs)
+
         for fname in self.val_outputs:
             self.val_outputs[fname] = np.stack([
             out.detach().cpu().numpy() if isinstance(out, torch.Tensor) else out  
@@ -146,6 +148,7 @@ class UnetModule(MriModule):
         }
 
     def test_epoch_end(self, outputs):
+        super().test_epoch_end(outputs)
         # save outputs
         for fname in self.test_outputs:
             self.test_outputs[fname] = np.stack([

@@ -20,7 +20,6 @@ from torchmetrics.metric import Metric
 import fastmri
 from fastmri import evaluate
 
-
 class DistributedMetricSum(Metric):
     def __init__(self, dist_sync_on_step=True):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
@@ -256,6 +255,7 @@ class MriModule(pl.LightningModule):
             self.best_epoch_metrics['ssim'] = current_metrics['ssim']
             self.best_epoch_metrics['psnr'] = current_metrics['psnr']
         
+        print("save metrics being called in validation stuff")
         # Save metrics after each epoch
         self._save_metrics()
         
@@ -267,6 +267,7 @@ class MriModule(pl.LightningModule):
         """
         Save metrics to CSV and pickle files
         """
+        print("save metrics being called")
         # define paths
         if hasattr(self, "trainer"):
             save_dir = pathlib.Path(self.trainer.default_root_dir) / "metrics"
@@ -330,6 +331,7 @@ class MriModule(pl.LightningModule):
 
         fastmri.save_reconstructions(outputs, save_path)
         
+        print("save metrics being called in epoch")
         # save final metrics after testing
         self._save_metrics()
 
