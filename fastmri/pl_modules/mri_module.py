@@ -6,6 +6,9 @@ LICENSE file in the root directory of this source tree.
 """
 
 import pathlib
+import os
+import csv
+import pickle
 from argparse import ArgumentParser
 from collections import defaultdict
 
@@ -16,7 +19,6 @@ from torchmetrics.metric import Metric
 
 import fastmri
 from fastmri import evaluate
-
 
 class DistributedMetricSum(Metric):
     def __init__(self, dist_sync_on_step=True):
@@ -67,6 +69,20 @@ class MriModule(pl.LightningModule):
         self.ValLoss = DistributedMetricSum()
         self.TotExamples = DistributedMetricSum()
         self.TotSliceExamples = DistributedMetricSum()
+        
+        # Initialize metrics tracking dictionaries
+        self.epoch_metrics = {
+            'epoch': [],
+            'nmse': [],
+            'ssim': [],
+            'psnr': []
+        }
+        self.best_epoch_metrics = {
+            'epoch': 0,
+            'nmse': float('inf'),
+            'ssim': 0,
+            'psnr': 0
+        }
 
     def validation_step_end(self, val_logs):
         # check inputs
@@ -217,8 +233,80 @@ class MriModule(pl.LightningModule):
         )
 
         self.log("validation_loss", val_loss / tot_slice_examples, prog_bar=True)
+        
+        # Calculate and log the final metrics for this epoch
+        current_epoch = self.current_epoch
+        current_metrics = {}
         for metric, value in metrics.items():
-            self.log(f"val_metrics/{metric}", value / tot_examples)
+            metric_value = value / tot_examples
+            current_metrics[metric] = metric_value.cpu().item()
+            self.log(f"val_metrics/{metric}", metric_value)
+        
+        # Store metrics for this epoch
+        self.epoch_metrics['epoch'].append(current_epoch)
+        self.epoch_metrics['nmse'].append(current_metrics['nmse'])
+        self.epoch_metrics['ssim'].append(current_metrics['ssim'])
+        self.epoch_metrics['psnr'].append(current_metrics['psnr'])
+        
+        # Check if this is the best epoch based on SSIM (higher is better)
+        if current_metrics['ssim'] > self.best_epoch_metrics['ssim']:
+            self.best_epoch_metrics['epoch'] = current_epoch
+            self.best_epoch_metrics['nmse'] = current_metrics['nmse']
+            self.best_epoch_metrics['ssim'] = current_metrics['ssim']
+            self.best_epoch_metrics['psnr'] = current_metrics['psnr']
+        
+        print("save metrics being called in validation stuff")
+        # Save metrics after each epoch
+        self._save_metrics()
+        
+        # Print debug information
+        print(f"Epoch {current_epoch}: SSIM = {current_metrics['ssim']:.4f}, NMSE = {current_metrics['nmse']:.4f}")
+        print(f"Best epoch so far: {self.best_epoch_metrics['epoch']} with SSIM = {self.best_epoch_metrics['ssim']:.4f}")
+
+    def _save_metrics(self):
+        """
+        Save metrics to CSV and pickle files
+        """
+        print("save metrics being called")
+        # define paths
+        if hasattr(self, "trainer"):
+            save_dir = pathlib.Path(self.trainer.default_root_dir) / "metrics"
+        else:
+            save_dir = pathlib.Path.cwd() / "metrics"
+            
+        # create directory if it doesn't exist
+        os.makedirs(save_dir, exist_ok=True)
+        
+        # save metrics to CSV
+        csv_path = save_dir / "epoch_metrics.csv"
+        with open(csv_path, 'w', newline='') as csvfile:
+            fieldnames = ['epoch', 'nmse', 'ssim', 'psnr']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            for i in range(len(self.epoch_metrics['epoch'])):
+                writer.writerow({
+                    'epoch': self.epoch_metrics['epoch'][i],
+                    'nmse': self.epoch_metrics['nmse'][i],
+                    'ssim': self.epoch_metrics['ssim'][i],
+                    'psnr': self.epoch_metrics['psnr'][i]
+                })
+        
+        # save best epoch metrics to CSV
+        best_csv_path = save_dir / "best_epoch_metrics.csv"
+        with open(best_csv_path, 'w', newline='') as csvfile:
+            fieldnames = ['epoch', 'nmse', 'ssim', 'psnr']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerow(self.best_epoch_metrics)
+        
+        # save metrics to pickle files
+        pickle_path = save_dir / "epoch_metrics.pkl"
+        with open(pickle_path, 'wb') as f:
+            pickle.dump(self.epoch_metrics, f)
+        
+        best_pickle_path = save_dir / "best_epoch_metrics.pkl"
+        with open(best_pickle_path, 'wb') as f:
+            pickle.dump(self.best_epoch_metrics, f)
 
     def test_epoch_end(self, test_logs):
         outputs = defaultdict(dict)
@@ -242,6 +330,10 @@ class MriModule(pl.LightningModule):
         self.print(f"Saving reconstructions to {save_path}")
 
         fastmri.save_reconstructions(outputs, save_path)
+        
+        print("save metrics being called in epoch")
+        # save final metrics after testing
+        self._save_metrics()
 
     @staticmethod
     def add_model_specific_args(parent_parser):  # pragma: no-cover
