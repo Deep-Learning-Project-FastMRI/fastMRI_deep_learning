@@ -97,7 +97,19 @@ class UnetModuleManual(MriModule):
         center_crop = batch.image[:, center_x - half_size : center_x + half_size, center_y - half_size : center_y + half_size]
         # print("NEW IMAGE SHAPE")
         # print(center_crop.shape)
+        
         return center_crop
+    
+    def get_image_quadrants(self, batch):
+        center_x, center_y = 320 // 2, 320 // 2
+        half_size = 200 // 2
+
+        top = batch.image[:, :center_x - half_size, :] 
+        bottom = batch.image[:, center_x + half_size:, :]  
+        left = batch.image[:, center_x - half_size:center_x + half_size, :center_y - half_size]  
+        right = batch.image[:, center_x - half_size:center_x + half_size, center_y + half_size:]  
+
+        return top, bottom, left, right
 
     def training_step(self, batch, batch_idx):
 
