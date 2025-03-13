@@ -19,6 +19,7 @@ from torchmetrics.metric import Metric
 
 import fastmri
 from fastmri import evaluate
+import wandb
 
 class DistributedMetricSum(Metric):
     def __init__(self, dist_sync_on_step=True):

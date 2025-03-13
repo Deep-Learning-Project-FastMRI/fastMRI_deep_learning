@@ -16,6 +16,7 @@ from .mri_module import MriModule
 from collections import defaultdict
 import numpy as np
 import fastmri
+import wandb
 
 class UnetModuleManual(MriModule):
     """

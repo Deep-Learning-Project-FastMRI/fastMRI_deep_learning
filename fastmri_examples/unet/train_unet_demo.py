@@ -14,6 +14,7 @@ import fastmri
 import fastmri.data.transforms as T
 from fastmri.data import SliceDataset
 from fastmri.models import Unet
+import wandb
 
 from fastmri.data.mri_data import fetch_dir
 from fastmri.data.subsample import create_mask_for_mask_type
@@ -21,8 +22,12 @@ from fastmri.data.transforms import UnetDataTransform
 from fastmri.pl_modules import FastMriDataModule, UnetModule, UnetModuleManual
 
 
+
 def cli_main(args):
     pl.seed_everything(args.seed)
+
+    #wandb
+    wandb.login("926b1c7d6af6fe4e896235f7787591e9adb48d1e")
 
     # ------------
     # data
@@ -82,11 +87,18 @@ def cli_main(args):
             output_path = pathlib.Path("reconstructions")
         )
 
-    
+    project_name = "deep_learning_fastmri_project"
+    config = {"experiment_mode": args.experiment_mode, "mode":args.mode}
+    run_name=f'{args.experiment_mode}' + '_' + f'{args.mode}'
+    wandb.init(
+        project=project_name,
+        config=config
+    )
+
     print("Train dataset size", len(data_module.train_dataloader().dataset))
     print("Val dataset size", len(data_module.val_dataloader().dataset))
     print("Test dataset size", len(data_module.test_dataloader().dataset))
-
+    
     # ------------
     # trainer
     # ------------
@@ -94,12 +106,15 @@ def cli_main(args):
     # ------------
     # run
     # ------------
-    if args.mode == "train":
-        trainer.fit(model, datamodule=data_module)
-    elif args.mode == "test":
-        trainer.test(model, datamodule=data_module)
-    else:
-        raise ValueError(f"unrecognized mode {args.mode}")
+
+    with wandb.init(config=config) as run:
+        run.name=run_name
+        if args.mode == "train":
+            trainer.fit(model, datamodule=data_module)
+        elif args.mode == "test":
+            trainer.test(model, datamodule=data_module)
+        else:
+            raise ValueError(f"unrecognized mode {args.mode}")
 
 
 def build_args():
