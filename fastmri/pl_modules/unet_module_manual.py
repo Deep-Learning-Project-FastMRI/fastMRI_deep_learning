@@ -87,31 +87,31 @@ class UnetModuleManual(MriModule):
 
     def forward(self, image):
         return self.unet(image.unsqueeze(1)).squeeze(1)
-    
-
-    def get_manual_center(self, batch):
-        # print("OLD IMAGE SHAPE")
-        # print(batch.image.shape)
-        center_x, center_y = 320 // 2, 320 // 2
-        half_size = 200 // 2
-        center_crop = batch.image[:, center_x - half_size : center_x + half_size, center_y - half_size : center_y + half_size]
-        # print("NEW IMAGE SHAPE")
-        # print(center_crop.shape)
-        return center_crop
 
     def training_step(self, batch, batch_idx):
-
         output = self(batch.image)
-       
-        loss = F.l1_loss(output, batch.target)
-        
-        self.log("loss", loss.detach())
+        target = batch.target
+    
+        B, H, W = output.shape
+        weight = torch.ones_like(output)
+        center_weight = 2.0
+        # need to create a weight mask
+        center_h, center_w = H // 2, W // 2
+        half_size = 200 // 2 
+
+        weight[:, center_h - half_size:center_h + half_size, center_w - half_size:center_w + half_size] = center_weight
+
+        # MSE 
+        loss = (output - target) ** 2
+        weighted_mse = (loss * weight).sum() / weight.sum()
+
+        self.log("loss", weighted_mse.detach())
         return {
             "batch_idx": batch_idx,
             "fname": batch.fname,
             "slice_num": batch.slice_num,
             "max_value": batch.max_value,
-            "loss": F.l1_loss(output, batch.target),
+            "loss": weighted_mse,
         }
 
     def validation_step(self, batch, batch_idx):
