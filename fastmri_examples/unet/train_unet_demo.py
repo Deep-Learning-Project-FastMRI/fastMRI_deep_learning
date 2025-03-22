@@ -14,7 +14,7 @@ import fastmri
 import fastmri.data.transforms as T
 from fastmri.data import SliceDataset
 from fastmri.models import Unet
-
+import wandb
 from fastmri.data.mri_data import fetch_dir
 from fastmri.data.subsample import create_mask_for_mask_type
 from fastmri.data.transforms import UnetDataTransform
@@ -22,6 +22,7 @@ from fastmri.pl_modules import FastMriDataModule, UnetModule, UnetModuleManual
 
 
 def cli_main(args):
+    wandb.login(key="926b1c7d6af6fe4e896235f7787591e9adb48d1e")
     pl.seed_everything(args.seed)
 
     # ------------
@@ -66,9 +67,9 @@ def cli_main(args):
             lr_step_size=args.lr_step_size,
             lr_gamma=args.lr_gamma,
             weight_decay=args.weight_decay,
-            output_path = pathlib.Path("reconstructions")
+            output_path = pathlib.Path("unet_logging/benchmark/reconstructions")
         )
-    else:
+    elif (args.experiment_mode == "manual"):
         model = UnetModuleManual(
             in_chans=args.in_chans,
             out_chans=args.out_chans,
@@ -79,9 +80,18 @@ def cli_main(args):
             lr_step_size=args.lr_step_size,
             lr_gamma=args.lr_gamma,
             weight_decay=args.weight_decay,
-            output_path = pathlib.Path("reconstructions")
+            output_path = pathlib.Path("unet_logging/manual/reconstructions")
         )
-
+    else:
+        raise ValueError("Invalid experiment mode")
+    
+    project_name = "deep_learning_fastmri_project"
+    config = {"experiment_mode": args.experiment_mode, "mode":args.mode}
+    run_name=f'{args.experiment_mode}' + '_' + f'{args.mode}'
+    wandb.init(
+        project=project_name,
+        config=config
+    )
     
     print("Train dataset size", len(data_module.train_dataloader().dataset))
     print("Val dataset size", len(data_module.val_dataloader().dataset))
@@ -94,13 +104,16 @@ def cli_main(args):
     # ------------
     # run
     # ------------
-    if args.mode == "train":
-        trainer.fit(model, datamodule=data_module)
-    elif args.mode == "test":
-        trainer.test(model, datamodule=data_module)
-    else:
-        raise ValueError(f"unrecognized mode {args.mode}")
-
+    with wandb.init(config=config) as run:
+        run.name=run_name
+        if args.mode == "train":
+            trainer.fit(model, datamodule=data_module)
+        elif args.mode == "test":
+            trainer.test(model, datamodule=data_module)
+        else:
+            raise ValueError(f"unrecognized mode {args.mode}")
+    
+    
 
 def build_args():
     parser = ArgumentParser()
@@ -113,7 +126,6 @@ def build_args():
 
     # set defaults based on optional directory config
     data_path = fetch_dir("knee_path", path_config)
-    default_root_dir = fetch_dir("log_path", path_config) / "unet" / "unet_demo"
 
     # client arguments
     parser.add_argument(
@@ -155,6 +167,7 @@ def build_args():
         help="Acceleration rates to use for masks",
     )
 
+
     # data config with path to fastMRI data and batch size
     parser = FastMriDataModule.add_data_specific_args(parser)
     parser.set_defaults(data_path=data_path, batch_size=batch_size, test_path=None)
@@ -181,13 +194,17 @@ def build_args():
         strategy=backend,  # what distributed version to use
         seed=42,  # random seed
         deterministic=True,  # makes things slower, but deterministic
-        default_root_dir=default_root_dir,  # directory for logs and checkpoints
+        # default_root_dir=default_root_dir,  # directory for logs and checkpoints
         max_epochs=50,  # max number of epochs
         log_every_n_steps=1,
     )
 
+
     args = parser.parse_args()
+    default_root_dir = fetch_dir("log_path", path_config) / "unet_logging" / args.experiment_mode
+
     print(args)
+    args.default_root_dir = default_root_dir
 
     # configure checkpointing in checkpoint_dir
     checkpoint_dir = args.default_root_dir / "checkpoints"
@@ -199,7 +216,7 @@ def build_args():
             dirpath=args.default_root_dir / "checkpoints",
             save_top_k=True,
             verbose=True,
-            monitor="val_loss",
+            monitor="val_metrics/ssim",
             mode="min",
         )
     ]
