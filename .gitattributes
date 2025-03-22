@@ -1,1 +1,2 @@
 *.ipynb linguist-documentation
+*tar.gz filter=lfs diff=lfs merge=lfs -text
