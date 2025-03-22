@@ -34,3 +34,5 @@ subsample_data/
 fastmri_dirs.yaml
 fastmri_examples/unet/wandb/
 multicoil_val/
+multicoil_train/
+brain_data/
