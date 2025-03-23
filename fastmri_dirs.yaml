@@ -1,3 +1,3 @@
-brain_path: "data"
-knee_path: "/home/hice1/ebruda3/scratch/fastMRI_deep_learning/subsample_data/"
+brain_path: "/home/hice1/ebruda3/scratch/fastMRI_deep_learning/brain_data/"
+knee_path: .
 log_path: .

@@ -129,6 +129,7 @@ class UnetModule(MriModule):
         }
 
     def test_step(self, batch, batch_idx):
+        print("target", batch.target)
         output = self.forward(batch.image)
         mean = batch.mean.unsqueeze(1).unsqueeze(2)
         std = batch.std.unsqueeze(1).unsqueeze(2)

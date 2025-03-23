@@ -4,7 +4,7 @@ Copyright (c) Facebook, Inc. and its affiliates.
 This source code is licensed under the MIT license found in the
 LICENSE file in the root directory of this source tree.
 """
-
+import torch
 import os
 import pathlib
 from argparse import ArgumentParser
@@ -37,6 +37,7 @@ def cli_main(args):
     val_transform = UnetDataTransform(args.challenge, mask_func=mask)
     test_transform = UnetDataTransform(args.challenge)
     # ptl data module - this handles data loaders
+    print(args.data_path)
     data_module = FastMriDataModule(
         data_path=args.data_path,
         challenge=args.challenge,
@@ -104,6 +105,8 @@ def cli_main(args):
     # ------------
     # run
     # ------------
+    torch.use_deterministic_algorithms(True, warn_only=True)
+
     with wandb.init(config=config) as run:
         run.name=run_name
         if args.mode == "train":
@@ -125,12 +128,12 @@ def build_args():
     batch_size = 1 if backend == "ddp" else num_gpus
 
     # set defaults based on optional directory config
-    data_path = fetch_dir("knee_path", path_config)
+    data_path = fetch_dir("brain_path", path_config)
 
     # client arguments
     parser.add_argument(
         "--mode",
-        default="train",
+        default="test",
         choices=("train", "test"),
         type=str,
         help="Operation mode",
@@ -198,6 +201,7 @@ def build_args():
         max_epochs=50,  # max number of epochs
         log_every_n_steps=1,
     )
+
 
 
     args = parser.parse_args()

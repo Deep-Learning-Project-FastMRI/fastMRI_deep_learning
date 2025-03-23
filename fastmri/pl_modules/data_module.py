@@ -102,7 +102,7 @@ class FastMriDataModule(pl.LightningDataModule):
         train_filter: Optional[Callable] = None,
         val_filter: Optional[Callable] = None,
         test_filter: Optional[Callable] = None,
-        use_dataset_cache_file: bool = True,
+        use_dataset_cache_file: bool = False,
         batch_size: int = 1,
         num_workers: int = 4,
         distributed_sampler: bool = False,
@@ -349,7 +349,7 @@ class FastMriDataModule(pl.LightningDataModule):
         parser.add_argument(
             "--challenge",
             choices=("singlecoil", "multicoil"),
-            default="singlecoil",
+            default="multicoil",
             type=str,
             help="Which challenge to preprocess for",
         )

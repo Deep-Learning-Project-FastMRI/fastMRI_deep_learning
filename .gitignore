@@ -22,7 +22,6 @@ dist/
 fastmri/_version.py
 data/
 fastmri_examples/unet/reconstructions/
-knee_singlecoil_train.tar.xz
 fastmri_raw_data_manifest/v2.0/
 fastmri_examples/unet/unet_demo/checkpoints
 knee_data
@@ -33,6 +32,4 @@ fastmri_examples/unet/unet_logging/
 subsample_data/
 fastmri_dirs.yaml
 fastmri_examples/unet/wandb/
-multicoil_val/
-multicoil_train/
 brain_data/
