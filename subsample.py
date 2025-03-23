@@ -25,6 +25,6 @@ def subsample_files(source_dir, dest_dir, subsample_fraction=0., file_extension=
 
 if __name__ == "__main__":
     # change the source directory
-    source_directory = "multicoil_test"
+    source_directory = "multicoil_test_full"
     destination_directory = "subsampled_multicoil_test"
     subsample_files(source_directory, destination_directory, subsample_fraction=0.10)
