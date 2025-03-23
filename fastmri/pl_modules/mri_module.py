@@ -221,8 +221,8 @@ class MriModule(pl.LightningModule):
                 output = test_logs["output"][i]
                 target = test_logs["target"][i]
                 
-                print("output shape", output.shape) 
-                print("target shape", target.shape)
+                # print("output shape", output.shape) 
+                # print("target shape", target.shape)
                 mse_vals[fname][slice_num] = torch.tensor(
                     evaluate.mse(target, output)
                 ).view(1)

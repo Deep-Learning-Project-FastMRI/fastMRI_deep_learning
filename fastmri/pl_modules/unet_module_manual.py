@@ -126,8 +126,8 @@ class UnetModuleManual(MriModule):
         output = self(batch.image)
         mean = batch.mean.unsqueeze(1).unsqueeze(2)
         std = batch.std.unsqueeze(1).unsqueeze(2)
-        print("val here output", output.shape)
-        print("val target here", batch.target.shape)
+        # print("val here output", output.shape)
+        # print("val target here", batch.target.shape)
         self.val_outputs[batch.fname[0]].append((batch.slice_num, output * std + mean))
         val_loss = F.l1_loss(output, batch.target)
         self.log("val_loss", val_loss)
@@ -142,7 +142,7 @@ class UnetModuleManual(MriModule):
         }
 
     def test_step(self, batch, batch_idx):
-        print("HERE")
+        # print("HERE")
         output = self.forward(batch.image)
         mean = batch.mean.unsqueeze(1).unsqueeze(2)
         std = batch.std.unsqueeze(1).unsqueeze(2)
@@ -151,9 +151,9 @@ class UnetModuleManual(MriModule):
         self.test_outputs[batch.fname[0]].append((batch.slice_num, output * std + mean))
         
         # Calculate loss for metrics
-        print("here output", output.shape)
-        print("target here", batch.target.shape)
-        print(batch.target)
+        # print("here output", output.shape)
+        # print("target here", batch.target.shape)
+        # print(batch.target)
         test_loss = F.l1_loss(output, batch.target)
         self.log("test_loss", test_loss)
         

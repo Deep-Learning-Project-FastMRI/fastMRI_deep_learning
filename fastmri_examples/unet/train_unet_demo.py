@@ -133,7 +133,7 @@ def build_args():
     # client arguments
     parser.add_argument(
         "--mode",
-        default="test",
+        default="train",
         choices=("train", "test"),
         type=str,
         help="Operation mode",
