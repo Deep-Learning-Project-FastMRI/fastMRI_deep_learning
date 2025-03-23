@@ -191,9 +191,6 @@ class MriModule(pl.LightningModule):
             "max_vals": max_vals,
         }
 
-    def log_image(self, name, image):
-        self.logger.experiment.add_image(name, image, global_step=self.global_step)
-
     def test_step_end(self, test_logs):
             # Similar to validation_step_end but for test data
             # check inputs
@@ -209,7 +206,6 @@ class MriModule(pl.LightningModule):
                     raise RuntimeError(
                         f"Expected key {k} in dict returned by test_step."
                     )
-            
             # compute evaluation metrics
             mse_vals = defaultdict(dict)
             target_norms = defaultdict(dict)
@@ -240,6 +236,8 @@ class MriModule(pl.LightningModule):
                 "target_norms": dict(target_norms),
                 "ssim_vals": dict(ssim_vals),
                 "max_vals": max_vals,
+                "fname": test_logs["fname"],
+                "slice": test_logs["slice"]
             }
 
 
@@ -369,30 +367,6 @@ class MriModule(pl.LightningModule):
 
 
     def test_epoch_end(self, test_logs):
-        # First call the original reconstruction saving logic
-        outputs = defaultdict(dict)
-
-        # use dicts for aggregation to handle duplicate slices in ddp mode
-        for log in test_logs:
-            for i, (fname, slice_num) in enumerate(zip(log["fname"], log["slice"])):
-                outputs[fname][int(slice_num.cpu())] = log["output"][i]
-
-        # stack all the slices for each file
-        for fname in outputs:
-            outputs[fname] = np.stack(
-                [out for _, out in sorted(outputs[fname].items())]
-            )
-
-        # pull the default_root_dir if we have a trainer, otherwise save to cwd
-        if hasattr(self, "trainer"):
-            save_path = pathlib.Path(self.trainer.default_root_dir) / "reconstructions"
-        else:
-            save_path = pathlib.Path.cwd() / "reconstructions"
-        self.print(f"Saving reconstructions to {save_path}")
-
-        fastmri.save_reconstructions(outputs, save_path)
-        
-        # Now calculate and save test metrics
         # aggregate losses
         losses = []
         mse_vals = defaultdict(dict)
@@ -414,7 +388,6 @@ class MriModule(pl.LightningModule):
                     ssim_vals[k].update(test_log["ssim_vals"][k])
                 for k in test_log["max_vals"]:
                     max_vals[k] = test_log["max_vals"][k]
-
         # If we have metrics to calculate
         if mse_vals:
             # check to make sure we have all files in all metrics
@@ -456,7 +429,7 @@ class MriModule(pl.LightningModule):
             metrics["ssim"] = self.SSIM(metrics["ssim"])
             metrics["psnr"] = self.PSNR(metrics["psnr"])
             tot_examples = self.TotTestExamples(torch.tensor(local_examples))
-            
+
             if losses:
                 test_loss = self.TestLoss(torch.sum(torch.cat(losses)))
                 tot_slice_examples = self.TotTestSliceExamples(
@@ -470,6 +443,7 @@ class MriModule(pl.LightningModule):
             # Calculate and log the final metrics for this epoch
             current_epoch = self.current_epoch
             current_metrics = {}
+            # print(metrics.items())
             for metric, value in metrics.items():
                 metric_value = value / tot_examples
                 current_metrics[metric] = metric_value.cpu().item()
@@ -639,6 +613,12 @@ class MriModule(pl.LightningModule):
         best_pickle_path = save_dir / "best_test_metrics.pkl"
         with open(best_pickle_path, 'wb') as f:
             pickle.dump(self.best_test_metrics, f)
+
+    
+
+    def log_image(self, name, image):
+        self.logger.experiment.add_image(name, image, global_step=self.global_step)
+
     @staticmethod
     def add_model_specific_args(parent_parser):  # pragma: no-cover
         """

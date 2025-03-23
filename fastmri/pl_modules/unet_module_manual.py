@@ -107,6 +107,20 @@ class UnetModuleManual(MriModule):
 
     def training_step(self, batch, batch_idx):
         output = self(batch.image)
+        target = batch.target
+    
+        B, H, W = output.shape
+        weight = torch.ones_like(output)
+        center_weight = 2.0
+        # need to create a weight mask
+        center_h, center_w = H // 2, W // 2
+        half_size = 200 // 2 
+
+        weight[:, center_h - half_size:center_h + half_size, center_w - half_size:center_w + half_size] = center_weight
+
+        # MSE 
+        loss = (output - target) ** 2
+        weighted_mse = (loss * weight).sum() / weight.sum()
         
         # Use standard mean/std to normalize the output for metrics
         mean = batch.mean.unsqueeze(1).unsqueeze(2)
@@ -116,11 +130,17 @@ class UnetModuleManual(MriModule):
         self.train_outputs[batch.fname[0]].append((batch.slice_num, output * std + mean))
         
         # Calculate loss
-        loss = F.l1_loss(output, batch.target)
-        self.log("loss", loss.detach())
+        self.log("loss", weighted_mse.detach())
         
         # Return just the loss
-        return loss
+        return {
+            "batch_idx": batch_idx,
+            "fname": batch.fname,
+            "slice_num": batch.slice_num,
+            "max_value": batch.max_value,
+            "loss": weighted_mse,
+        }
+
         
     def validation_step(self, batch, batch_idx):
         output = self(batch.image)
@@ -212,7 +232,7 @@ class UnetModuleManual(MriModule):
     def test_epoch_end(self, outputs):
         # Call the parent class implementation for metric calculation
         super().test_epoch_end(outputs)
-        
+            
         # Save test reconstructions
         for fname in self.test_outputs:
             self.test_outputs[fname] = np.stack([
@@ -228,7 +248,7 @@ class UnetModuleManual(MriModule):
         
         # Clear the outputs for the next epoch
         self.test_outputs = defaultdict(list)
-
+        
     def configure_optimizers(self):
         optim = torch.optim.RMSprop(
             self.parameters(),

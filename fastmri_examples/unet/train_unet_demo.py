@@ -112,7 +112,7 @@ def cli_main(args):
         if args.mode == "train":
             trainer.fit(model, datamodule=data_module)
         elif args.mode == "test":
-            trainer.test(model, datamodule=data_module)
+            trainer.test(model, datamodule=data_module, ckpt_path = args.resume_from_checkpoint)
         else:
             raise ValueError(f"unrecognized mode {args.mode}")
     
