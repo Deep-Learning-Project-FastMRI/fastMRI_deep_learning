@@ -221,7 +221,7 @@ def build_args():
             save_top_k=True,
             verbose=True,
             monitor="val_metrics/ssim",
-            mode="min",
+            mode="max",
         )
     ]
 
