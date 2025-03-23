@@ -6,7 +6,8 @@ LICENSE file in the root directory of this source tree.
 """
 
 from argparse import ArgumentParser
-
+from pathlib import Path
+import wandb
 import torch
 from torch.nn import functional as F
 
@@ -76,7 +77,12 @@ class UnetModule(MriModule):
         self.val_outputs = defaultdict(list)
         self.test_outputs = defaultdict(list)
 
-        self.output_path = output_path
+        # Convert output_path to Path object if it's a string
+        if isinstance(output_path, str) and output_path:
+            self.output_path = Path(output_path)
+        else:
+            self.output_path = output_path
+
         self.unet = Unet(
             in_chans=self.in_chans,
             out_chans=self.out_chans,
@@ -88,22 +94,23 @@ class UnetModule(MriModule):
     def forward(self, image):
         return self.unet(image.unsqueeze(1)).squeeze(1)
   
-
     def training_step(self, batch, batch_idx):
-       
         output = self(batch.image)
-       
-        loss = F.l1_loss(output, batch.target)
         
+        # Use standard mean/std to normalize the output for metrics
+        mean = batch.mean.unsqueeze(1).unsqueeze(2)
+        std = batch.std.unsqueeze(1).unsqueeze(2)
+        
+        # Save training outputs
+        self.train_outputs[batch.fname[0]].append((batch.slice_num, output * std + mean))
+        
+        # Calculate loss
+        loss = F.l1_loss(output, batch.target)
         self.log("loss", loss.detach())
-        return {
-            "batch_idx": batch_idx,
-            "fname": batch.fname,
-            "slice_num": batch.slice_num,
-            "max_value": batch.max_value,
-            "loss": F.l1_loss(output, batch.target),
-        }
-
+        
+        # Return just the loss
+        return loss
+        
     def validation_step(self, batch, batch_idx):
         output = self(batch.image)
         mean = batch.mean.unsqueeze(1).unsqueeze(2)
@@ -118,46 +125,90 @@ class UnetModule(MriModule):
             "max_value": batch.max_value,
             "output": output * std + mean,
             "target": batch.target * std + mean,
-            "val_loss": F.l1_loss(output, batch.target),
+            "val_loss": val_loss,
         }
 
-
-    def validation_epoch_end(self, outputs):
-        # save outputs
-        super().validation_epoch_end(outputs)
-
-        for fname in self.val_outputs:
-            self.val_outputs[fname] = np.stack([
-            out.detach().cpu().numpy() if isinstance(out, torch.Tensor) else out  
-            for _, out in sorted(self.val_outputs[fname])
-            ])
-        fastmri.save_reconstructions(self.val_outputs, self.output_path /"reconstructions_val")        
-        self.val_outputs = defaultdict(list)
-
-
     def test_step(self, batch, batch_idx):
+        # print("target", batch.target)
         output = self.forward(batch.image)
         mean = batch.mean.unsqueeze(1).unsqueeze(2)
         std = batch.std.unsqueeze(1).unsqueeze(2)
+        
+        # Save to test outputs for reconstruction
         self.test_outputs[batch.fname[0]].append((batch.slice_num, output * std + mean))
-
+        
+        # Calculate loss for metrics
+        test_loss = F.l1_loss(output, batch.target)
+        self.log("test_loss", test_loss)
+        
         return {
             "fname": batch.fname,
             "slice": batch.slice_num,
+            "max_value": batch.max_value,
             "output": (output * std + mean).cpu().numpy(),
+            "target": (batch.target * std + mean).cpu().numpy(),
+            "test_loss": test_loss,
         }
 
+    
+    def training_epoch_end(self, losses):
+        super().training_epoch_end(losses)        
+        # Save training reconstructions
+        for fname in self.train_outputs:
+            self.train_outputs[fname] = np.stack([
+                out.detach().cpu().numpy() if isinstance(out, torch.Tensor) else out  
+                for _, out in sorted(self.train_outputs[fname])
+            ])
+        
+        # Save the reconstructions to disk
+        if hasattr(self, 'output_path') and self.output_path:
+            if not Path(self.output_path).exists():
+                Path(self.output_path).mkdir(parents=True, exist_ok=True)
+            fastmri.save_reconstructions(self.train_outputs, self.output_path / "reconstructions_train")
+        
+        # Clear the outputs for the next epoch
+        self.train_outputs = defaultdict(list)
+
+
+    def validation_epoch_end(self, outputs):
+        # Call the parent class implementation for metric calculation
+        super().validation_epoch_end(outputs)
+
+        # Save validation reconstructions
+        for fname in self.val_outputs:
+            self.val_outputs[fname] = np.stack([
+                out.detach().cpu().numpy() if isinstance(out, torch.Tensor) else out  
+                for _, out in sorted(self.val_outputs[fname])
+            ])
+        
+        # Save the reconstructions to disk
+        if hasattr(self, 'output_path') and self.output_path:
+            if not Path(self.output_path).exists():
+                Path(self.output_path).mkdir(parents=True, exist_ok=True)
+            fastmri.save_reconstructions(self.val_outputs, self.output_path / "reconstructions_val")
+        
+        # Clear the outputs for the next epoch
+        self.val_outputs = defaultdict(list)
+
     def test_epoch_end(self, outputs):
+        # Call the parent class implementation for metric calculation
         super().test_epoch_end(outputs)
-        # save outputs
+        
+        # Save test reconstructions
         for fname in self.test_outputs:
             self.test_outputs[fname] = np.stack([
-            out.detach().cpu().numpy() if isinstance(out, torch.Tensor) else out  
-            for _, out in sorted(self.test_outputs[fname])
+                out.detach().cpu().numpy() if isinstance(out, torch.Tensor) else out  
+                for _, out in sorted(self.test_outputs[fname])
             ])
-        fastmri.save_reconstructions(self.test_outputs, self.output_path / "reconstructions_test")
+        
+        # Save the reconstructions to disk
+        if hasattr(self, 'output_path') and self.output_path:
+            if not Path(self.output_path).exists():
+                Path(self.output_path).mkdir(parents=True, exist_ok=True)
+            fastmri.save_reconstructions(self.test_outputs, self.output_path / "reconstructions_test")
+        
+        # Clear the outputs for the next epoch
         self.test_outputs = defaultdict(list)
-
 
     def configure_optimizers(self):
         optim = torch.optim.RMSprop(
@@ -170,6 +221,7 @@ class UnetModule(MriModule):
         )
 
         return [optim], [scheduler]
+
 
     @staticmethod
     def add_model_specific_args(parent_parser):  # pragma: no-cover

@@ -381,7 +381,6 @@ class SliceDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, i: int):
         fname, dataslice, metadata = self.raw_samples[i]
-
         with h5py.File(fname, "r") as hf:
             kspace = hf["kspace"][dataslice]
 

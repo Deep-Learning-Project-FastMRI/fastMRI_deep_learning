@@ -2,7 +2,7 @@ import os
 import random
 import shutil
 
-def subsample_files(source_dir, dest_dir, subsample_fraction=0.05, file_extension=".h5"):
+def subsample_files(source_dir, dest_dir, subsample_fraction=0., file_extension=".h5"):
     """
     Randomly select a fraction of files from source_dir and copy them to dest_dir.
     :param source_dir: Path to the folder containing the original files.
@@ -25,6 +25,6 @@ def subsample_files(source_dir, dest_dir, subsample_fraction=0.05, file_extensio
 
 if __name__ == "__main__":
     # change the source directory
-    source_directory = "singlecoil_train"
-    destination_directory = "subsampled_singlecoil_train"
+    source_directory = "multicoil_test_full"
+    destination_directory = "subsampled_multicoil_test"
     subsample_files(source_directory, destination_directory, subsample_fraction=0.10)
