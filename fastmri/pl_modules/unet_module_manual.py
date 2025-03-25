@@ -118,9 +118,13 @@ class UnetModuleManual(MriModule):
 
         weight[:, center_h - half_size:center_h + half_size, center_w - half_size:center_w + half_size] = center_weight
 
-        # MSE 
-        loss = (output - target) ** 2
-        weighted_mse = (loss * weight).sum() / weight.sum()
+        # MSE - usign l1 to stay consistent with benchmark
+        # loss = (output - target) ** 2
+        # weighted_mse = (loss * weight).sum() / weight.sum()
+
+        # use L1 instead
+        loss = torch.abs(output - target)
+        weighted_l1 = (loss * weight).sum() / weight.sum()
         
         # Use standard mean/std to normalize the output for metrics
         mean = batch.mean.unsqueeze(1).unsqueeze(2)
@@ -130,7 +134,7 @@ class UnetModuleManual(MriModule):
         self.train_outputs[batch.fname[0]].append((batch.slice_num, output * std + mean))
         
         # Calculate loss
-        self.log("loss", weighted_mse.detach())
+        self.log("loss", weighted_l1.detach())
         
         # Return just the loss
         return {
@@ -138,7 +142,7 @@ class UnetModuleManual(MriModule):
             "fname": batch.fname,
             "slice_num": batch.slice_num,
             "max_value": batch.max_value,
-            "loss": weighted_mse,
+            "loss": weighted_l1,
         }
 
         
