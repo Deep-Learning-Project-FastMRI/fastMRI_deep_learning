@@ -34,3 +34,6 @@ fastmri_dirs.yaml
 fastmri_examples/unet/wandb/
 brain_data/
 multicoil_test_full/
+benchmark_test_reconstructions_2.tar.gz
+.gitignore
+manual_test_reconstructions_2.tar.gz
