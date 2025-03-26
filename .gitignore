@@ -37,3 +37,5 @@ multicoil_test_full/
 benchmark_test_reconstructions_2.tar.gz
 .gitignore
 manual_test_reconstructions_2.tar.gz
+fastmri_examples/unet/manual_test.log
+fastmri_examples/unet/manual_train.log
