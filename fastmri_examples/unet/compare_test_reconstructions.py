@@ -5,6 +5,7 @@ import numpy as np
 from pathlib import Path
 import xml.etree.ElementTree as etree
 from fastmri.data.mri_data import FastMRIRawDataSample, et_query
+from fastmri import evaluate
 
 import logging
 import os
@@ -37,6 +38,86 @@ from tqdm import tqdm
 
 # for every reconstruction file in benchmark and manual
 
+
+def compare(ground_truth_folder, reconstruction_test_folder):
+    # for every file (should be in both folders):
+        # get the ground truth of the test image
+        # get the reconstructed image
+        # get the ROI for both
+        # calculate SSIM/PSNR/MSE/etc
+    
+    ground_truth_files = sorted(os.listdir(ground_truth_folder))
+    # print("num files", len(ground_truth_files)) # 18
+    ground_truth_raw_samples = get_raw_gt_samples(ground_truth_files, ground_truth_folder)
+    ground_truth_targets = get_targets(ground_truth_raw_samples)
+    assert len(ground_truth_targets) == len(ground_truth_raw_samples)
+    # print("len ground truth target", len(ground_truth_targets)) # 288
+    reconstructions = get_test_reconstructions(reconstruction_test_folder, ground_truth_folder)
+    assert len(reconstructions) == len(ground_truth_targets)
+
+    avg_ssim, avg_psnr = compute_metrics(target_list=ground_truth_targets, reconstruction_list=reconstructions)
+    print("avg ssim", avg_ssim)
+    print("avg psnr", avg_psnr)
+
+
+
+def get_test_reconstructions(reconstruction_test_folder, ground_truth_folder):
+    test_truth_files = sorted(os.listdir(reconstruction_test_folder))
+    reconstruction_list = []
+    for fname in test_truth_files:
+        metadata, num_slices = retrieve_metadata(fname, ground_truth_folder)
+
+        with h5py.File(reconstruction_test_folder + "/" + fname, "r") as hf:
+            reconstruction = hf["reconstruction"]
+            curr_reconstruction_list = []
+            for slice_ind in range(num_slices):
+                curr_reconstruction_list.append(reconstruction[slice_ind, 0, :, :])
+            
+            reconstruction_list += curr_reconstruction_list
+    # print("reconstruction list", len(reconstruction_list))
+    return reconstruction_list
+
+def get_raw_gt_samples(ground_truth_files, ground_truth_folder):
+    raw_samples = []
+    for fname in ground_truth_files:
+        metadata, num_slices = retrieve_metadata(fname, ground_truth_folder)
+        new_raw_samples = []
+        for slice_ind in range(num_slices):
+            raw_sample = FastMRIRawDataSample(fname, slice_ind, metadata)
+            new_raw_samples.append(raw_sample)
+        raw_samples += new_raw_samples
+    return raw_samples
+
+def compute_metrics(target_list, reconstruction_list): 
+    # do this function, but only for the ROI (use ananya's function for that)
+    ssim_list = []
+    pnsr_list = []
+    for i in range(0, len(target_list), 1):
+        target, maxval = target_list[i]
+        reconstruction = reconstruction_list[i]
+        ssim = torch.tensor(
+                evaluate.ssim(target[None, ...], reconstruction[None, ...], maxval=maxval)
+            ).view(1)
+        psnr = torch.tensor(
+            evaluate.psnr(target[None, ...], reconstruction[None, ...], maxval=maxval)
+        )
+        ssim_list.append(ssim)
+        pnsr_list.append(psnr)
+    avg_ssim = np.average(ssim_list)
+    avg_psnr = np.average(pnsr_list)
+
+    return avg_ssim, avg_psnr
+
+def get_targets(raw_samples):
+    targets = []
+    for i in range(0, len(raw_samples), 1):
+        # raw_sample = raw_samples[i]
+        fname, dataslice, metadata = raw_samples[i]
+        # print(metadata.keys())
+        with h5py.File(ground_truth_folder + "/" + fname, "r") as hf:
+            target = hf["reconstruction_rss"][dataslice]
+            targets.append((target, metadata["max"]))
+    return targets
 
 def retrieve_metadata(fname, folder):
         with h5py.File(folder + "/" + fname, "r") as hf:
@@ -71,49 +152,11 @@ def retrieve_metadata(fname, folder):
                 "recon_size": recon_size,
                 **hf.attrs,
             }
-
         return metadata, num_slices
 
+reconstruction_test_folder = "unet_logging/manual/reconstructions/reconstructions_test/"
 
-def compare(ground_truth_folder, reconstruction_test_folder):
-    # for every file (should be in both folders):
-        # get the ground truth of the test image
-        # get the reconstructed image
-        # get the ROI for both
-        # calculate SSIM/PSNR/MSE/etc
-    
-    ground_truth_files = sorted(os.listdir(ground_truth_folder))
-    result = get_raw_gt_samples(ground_truth_files, ground_truth_folder)
-    print(len(result))
-
-def get_raw_gt_samples(ground_truth_files, ground_truth_folder):
-    raw_samples = []
-    for fname in ground_truth_files:
-        print(fname)
-        metadata, num_slices = retrieve_metadata(fname, ground_truth_folder)
-
-        new_raw_samples = []
-        for slice_ind in range(num_slices):
-            raw_sample = FastMRIRawDataSample(fname, slice_ind, metadata)
-            new_raw_samples.append(raw_sample)
-
-        raw_samples += new_raw_samples
-    return raw_samples
-
-
-def get_gt(fname):
-        print("FNAME HERE IS: ")
-
-        print(fname)
-        with h5py.File(ground_truth_folder + "/" + fname, "r") as hf:
-            fname, dataslice, metadata = self.raw_samples[i]
-            target = hf["reconstruction_rss"][dataslice] 
-
-        return target
-
-# reconstruction_test_folder = "unet_logging/manual/reconstructions/reconstructions/reconstruction_test"
-
-reconstruction_test_folder = None
+# reconstruction_test_folder = None
 
 ground_truth_folder = "../../brain_data/multicoil_test/"
 compare(ground_truth_folder, reconstruction_test_folder)
