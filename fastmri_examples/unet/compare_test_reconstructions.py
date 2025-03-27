@@ -5,6 +5,7 @@ import numpy as np
 from pathlib import Path
 import xml.etree.ElementTree as etree
 from fastmri.data.mri_data import FastMRIRawDataSample, et_query
+from UnetModuleManual import training_step
 from fastmri import evaluate
 
 import logging
@@ -55,10 +56,17 @@ def compare(ground_truth_folder, reconstruction_test_folder):
     reconstructions = get_test_reconstructions(reconstruction_test_folder, ground_truth_folder)
     assert len(reconstructions) == len(ground_truth_targets)
 
-    avg_ssim, avg_psnr = compute_metrics(target_list=ground_truth_targets, reconstruction_list=reconstructions)
+    avg_ssim, avg_psnr, avg_nmse, avg_l1_loss = compute_metrics(target_list=ground_truth_targets, reconstruction_list=reconstructions)
     print("avg ssim", avg_ssim)
     print("avg psnr", avg_psnr)
+    print("avg nmse", avg_nmse)
+    print("avg l1 loss", avg_l1_loss)
 
+    avg_ssim_roi, avg_psnr_roi, avg_nmse_roi, avg_l1_loss_roi = compute_metrics_roi(target_list=ground_truth_targets, reconstruction_list=reconstructions)
+    print("avg ssim_roi", avg_ssim_roi)
+    print("avg psnr_roi", avg_psnr_roi)
+    print("avg nmse_roi", avg_nmse_roi)
+    print("avg l1 loss_roi", avg_l1_loss_roi)
 
 
 def get_test_reconstructions(reconstruction_test_folder, ground_truth_folder):
@@ -92,6 +100,9 @@ def compute_metrics(target_list, reconstruction_list):
     # do this function, but only for the ROI (use ananya's function for that)
     ssim_list = []
     pnsr_list = []
+    nmse_list = []
+    l1_loss_list = []
+
     for i in range(0, len(target_list), 1):
         target, maxval = target_list[i]
         reconstruction = reconstruction_list[i]
@@ -101,12 +112,64 @@ def compute_metrics(target_list, reconstruction_list):
         psnr = torch.tensor(
             evaluate.psnr(target[None, ...], reconstruction[None, ...], maxval=maxval)
         )
+        nmse = torch.tensor(
+            evaluate.nmse(roi_target[None, ...], roi_reconstruction[None, ...])
+        )
+        l1_val = F.l1_loss(roi_target, roi_reconstruction)
+
         ssim_list.append(ssim)
         pnsr_list.append(psnr)
+        nmse_list.append(nmse)
+        l1_loss_list.append(l1_val)
+
     avg_ssim = np.average(ssim_list)
     avg_psnr = np.average(pnsr_list)
+    avg_nmse = np.average(nmse_list)
+    avg_l1_loss = np.average(l1_loss_list)
 
-    return avg_ssim, avg_psnr
+    return avg_ssim, avg_psnr, avg_nmse, avg_l1_loss
+
+def compute_metrics_roi(target_list, reconstruction_list): 
+    # do this function, but only for the ROI (use ananya's function for that)
+    ssim_list = []
+    pnsr_list = []
+    nmse_list = []
+    l1_loss_list = []
+
+    for i in range(0, len(target_list), 1):
+        target, maxval = target_list[i]
+        reconstruction = reconstruction_list[i]
+        H, W = target.shape
+        
+        center_h, center_w = H // 2, W // 2
+        half_size = 200 // 2  
+
+        roi_target = target[center_h - half_size : center_h + half_size,
+                            center_w - half_size : center_w + half_size]
+        roi_reconstruction = reconstruction[center_h - half_size : center_h + half_size, center_w - half_size : center_w + half_size]
+        
+        ssim = torch.tensor(
+            evaluate.ssim(roi_target[None, ...], roi_reconstruction[None, ...], maxval=maxval)
+        ).view(1)
+        psnr = torch.tensor(
+            evaluate.psnr(roi_target[None, ...], roi_reconstruction[None, ...], maxval=maxval)
+        )
+        nmse = torch.tensor(
+            evaluate.nmse(roi_target[None, ...], roi_reconstruction[None, ...])
+        )
+        l1_val = F.l1_loss(roi_target, roi_reconstruction)
+        
+        ssim_list.append(ssim)
+        psnr_list.append(psnr)
+        nmse_list.append(nmse)
+        l1_loss_list.append(l1_val)
+
+    avg_ssim = np.average(ssim_list)
+    avg_psnr = np.average(pnsr_list)
+    avg_nmse = np.average(nmse_list)
+    avg_l1_loss = np.average(l1_loss_list)
+
+    return avg_ssim, avg_psnr, avg_nmse, avg_l1_loss
 
 def get_targets(raw_samples):
     targets = []
