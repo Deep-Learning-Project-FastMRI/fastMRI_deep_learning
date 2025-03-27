@@ -302,7 +302,12 @@ class MriModule(pl.LightningModule):
             target_norm = torch.mean(
                 torch.cat([v.view(-1) for _, v in target_norms[fname].items()])
             )
-            metrics["nmse"] = metrics["nmse"] + mse_val / target_norm
+            volume_sse = torch.sum(torch.cat([v.view(-1) for v in git[fname].values()]))
+            volume_tnorm = torch.sum(torch.cat([v.view(-1) for v in tnorm_vals
+            [fname].values()]))
+            nmse_val = volume_sse / (volume_tnorm + 1e-12)
+            metrics["nmse"] += nmse_val
+            # metrics["nmse"] = metrics["nmse"] + mse_val / target_norm
             metrics["psnr"] = (
                 metrics["psnr"]
                 + 20
@@ -409,7 +414,12 @@ class MriModule(pl.LightningModule):
                 target_norm = torch.mean(
                     torch.cat([v.view(-1) for _, v in target_norms[fname].items()])
                 )
-                metrics["nmse"] = metrics["nmse"] + mse_val / target_norm
+                volume_sse = torch.sum(torch.cat([v.view(-1) for v in git[fname].values()]))
+                volume_tnorm = torch.sum(torch.cat([v.view(-1) for v in tnorm_vals
+                [fname].values()]))
+                nmse_val = volume_sse / (volume_tnorm + 1e-12)
+                metrics["nmse"] += nmse_val
+                # metrics["nmse"] = metrics["nmse"] + mse_val / target_norm
                 metrics["psnr"] = (
                     metrics["psnr"]
                     + 20
