@@ -303,7 +303,7 @@ class MriModule(pl.LightningModule):
                 torch.cat([v.view(-1) for _, v in target_norms[fname].items()])
             )
 
-            volume_sse = torch.sum(torch.cat([v.view(-1) for v in git[fname].values()]))
+            volume_sse = torch.sum(torch.cat([v.view(-1) for v in sse_vals[fname].values()]))
             volume_tnorm = torch.sum(torch.cat([v.view(-1) for v in tnorm_vals
             [fname].values()]))
             nmse_val = volume_sse / (volume_tnorm + 1e-12)
