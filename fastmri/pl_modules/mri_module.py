@@ -166,6 +166,8 @@ class MriModule(pl.LightningModule):
         target_norms = defaultdict(dict)
         ssim_vals = defaultdict(dict)
         max_vals = dict()
+        psnr_vals = defaultdict(dict)
+        nmse_vals = defaultdict(dict)
         for i, fname in enumerate(val_logs["fname"]):
             slice_num = int(val_logs["slice_num"][i].cpu())
             maxval = val_logs["max_value"][i].cpu().numpy()
@@ -181,6 +183,14 @@ class MriModule(pl.LightningModule):
             ssim_vals[fname][slice_num] = torch.tensor(
                 evaluate.ssim(target[None, ...], output[None, ...], maxval=maxval)
             ).view(1)
+
+            psnr_vals[fname][slice_num] = torch.tensor(
+                evaluate.psnr(target, output, maxval=maxval)
+            ).view(1)
+            nmse_vals[fname][slice_num] = torch.tensor(
+                evaluate.nmse(target, output)
+            )
+
             max_vals[fname] = maxval
 
         return {
@@ -188,6 +198,8 @@ class MriModule(pl.LightningModule):
             "mse_vals": dict(mse_vals),
             "target_norms": dict(target_norms),
             "ssim_vals": dict(ssim_vals),
+            "psnr_vals": dict(psnr_vals),  
+            "nmse_vals": dict(nmse_vals),  
             "max_vals": max_vals,
         }
 
@@ -211,6 +223,9 @@ class MriModule(pl.LightningModule):
             target_norms = defaultdict(dict)
             ssim_vals = defaultdict(dict)
             max_vals = dict()
+            psnr_vals = defaultdict(dict)
+            nmse_vals = defaultdict(dict)
+
             for i, fname in enumerate(test_logs["fname"]):
                 slice_num = int(test_logs["slice"][i].cpu())
                 maxval = test_logs["max_value"][i].cpu().numpy()
@@ -228,6 +243,13 @@ class MriModule(pl.LightningModule):
                 ssim_vals[fname][slice_num] = torch.tensor(
                     evaluate.ssim(target[None, ...], output[None, ...], maxval=maxval)
                 ).view(1)
+                psnr_vals[fname][slice_num] = torch.tensor(
+                evaluate.psnr(target, output, maxval=maxval)
+                ).view(1)
+                nmse_vals[fname][slice_num] = torch.tensor(
+                evaluate.nmse(target, output, maxval=maxval)
+                ).view(1)
+
                 max_vals[fname] = maxval
 
             return {
@@ -237,6 +259,8 @@ class MriModule(pl.LightningModule):
                 "ssim_vals": dict(ssim_vals),
                 "max_vals": max_vals,
                 "fname": test_logs["fname"],
+                "psnr_vals": dict(psnr_vals),
+                "nmse_vals": dict(nmse_vals),
                 "slice": test_logs["slice"]
             }
 
@@ -269,7 +293,8 @@ class MriModule(pl.LightningModule):
         target_norms = defaultdict(dict)
         ssim_vals = defaultdict(dict)
         max_vals = dict()
-
+        psnr_vals = defaultdict(dict)  # Added PSNR values 
+        nmse_vals = defaultdict(dict)
         # use dict updates to handle duplicate slices
         for val_log in val_logs:
             losses.append(val_log["val_loss"].view(-1))
@@ -282,12 +307,17 @@ class MriModule(pl.LightningModule):
                 ssim_vals[k].update(val_log["ssim_vals"][k])
             for k in val_log["max_vals"]:
                 max_vals[k] = val_log["max_vals"][k]
-
+            for k in val_log["psnr_vals"].keys():  
+                psnr_vals[k].update(val_log["psnr_vals"][k])
+            for k in val_log["nmse_vals"].keys():  
+                nmse_vals[k].update(val_log["nmse_vals"][k])
         # check to make sure we have all files in all metrics
         assert (
             mse_vals.keys()
             == target_norms.keys()
             == ssim_vals.keys()
+            == psnr_vals.keys()
+            == nmse_vals.keys()
             == max_vals.keys()
         )
 
@@ -302,21 +332,11 @@ class MriModule(pl.LightningModule):
             target_norm = torch.mean(
                 torch.cat([v.view(-1) for _, v in target_norms[fname].items()])
             )
-            volume_sse = torch.sum(torch.cat([v.view(-1) for v in git[fname].values()]))
-            volume_tnorm = torch.sum(torch.cat([v.view(-1) for v in tnorm_vals
-            [fname].values()]))
-            nmse_val = volume_sse / (volume_tnorm + 1e-12)
-            metrics["nmse"] += nmse_val
-            # metrics["nmse"] = metrics["nmse"] + mse_val / target_norm
-            metrics["psnr"] = (
-                metrics["psnr"]
-                + 20
-                * torch.log10(
-                    torch.tensor(
-                        max_vals[fname], dtype=mse_val.dtype, device=mse_val.device
-                    )
-                )
-                - 10 * torch.log10(mse_val)
+            metrics["psnr"] = metrics["psnr"] + torch.mean(
+                torch.cat([v.view(-1) for _, v in psnr_vals[fname].items()])
+            )
+            metrics["nmse"] = metrics["nmse"] + torch.mean(
+                torch.cat([v.view(-1) for _, v in nmse_vals[fname].items()])
             )
             metrics["ssim"] = metrics["ssim"] + torch.mean(
                 torch.cat([v.view(-1) for _, v in ssim_vals[fname].items()])
@@ -378,6 +398,8 @@ class MriModule(pl.LightningModule):
         target_norms = defaultdict(dict)
         ssim_vals = defaultdict(dict)
         max_vals = dict()
+        psnr_vals = defaultdict(dict)
+        nmse_vals = defaultdict(dict)
 
         # use dict updates to handle duplicate slices
         for test_log in test_logs:
@@ -391,6 +413,10 @@ class MriModule(pl.LightningModule):
                     target_norms[k].update(test_log["target_norms"][k])
                 for k in test_log["ssim_vals"].keys():
                     ssim_vals[k].update(test_log["ssim_vals"][k])
+                for k in test_log["psnr_vals"].keys():  # Added PSNR values
+                    psnr_vals[k].update(test_log["psnr_vals"][k])
+                for k in test_log["nmse_vals"].keys():  
+                    nmse_vals[k].update(test_log["nmse_vals"][k])
                 for k in test_log["max_vals"]:
                     max_vals[k] = test_log["max_vals"][k]
         # If we have metrics to calculate
@@ -400,6 +426,8 @@ class MriModule(pl.LightningModule):
                 mse_vals.keys()
                 == target_norms.keys()
                 == ssim_vals.keys()
+                == psnr_vals.keys()  # Added PSNR assertion
+                == nmse_vals.keys() 
                 == max_vals.keys()
             )
 
@@ -414,24 +442,14 @@ class MriModule(pl.LightningModule):
                 target_norm = torch.mean(
                     torch.cat([v.view(-1) for _, v in target_norms[fname].items()])
                 )
-                volume_sse = torch.sum(torch.cat([v.view(-1) for v in git[fname].values()]))
-                volume_tnorm = torch.sum(torch.cat([v.view(-1) for v in tnorm_vals
-                [fname].values()]))
-                nmse_val = volume_sse / (volume_tnorm + 1e-12)
-                metrics["nmse"] += nmse_val
-                # metrics["nmse"] = metrics["nmse"] + mse_val / target_norm
-                metrics["psnr"] = (
-                    metrics["psnr"]
-                    + 20
-                    * torch.log10(
-                        torch.tensor(
-                            max_vals[fname], dtype=mse_val.dtype, device=mse_val.device
-                        )
-                    )
-                    - 10 * torch.log10(mse_val)
+                metrics["psnr"] = metrics["psnr"] + torch.mean(
+                    torch.cat([v.view(-1) for _, v in psnr_vals[fname].items()])
                 )
                 metrics["ssim"] = metrics["ssim"] + torch.mean(
                     torch.cat([v.view(-1) for _, v in ssim_vals[fname].items()])
+                )
+                metrics["nmse"] = metrics["nmse"] + torch.mean(
+                    torch.cat([v.view(-1) for _, v in nmse_vals[fname].items()])
                 )
 
             # reduce across ddp via sum
@@ -481,7 +499,7 @@ class MriModule(pl.LightningModule):
             self._save_test_metrics()
             
             # Print debug information
-            print(f"Test Results: SSIM = {current_metrics['ssim']:.4f}, NMSE = {current_metrics['nmse']:.4f}")
+            print(f"Test Results: SSIM = {current_metrics['ssim']:.4f}, NMSE = {current_metrics['nmse']:.4f}, PSNR = {current_metrics['psnr']:.4f}")
             print(f"Best test metrics: Epoch {self.best_test_metrics['epoch']} with SSIM = {self.best_test_metrics['ssim']:.4f}")
         
         # print("save metrics being called in epoch")
