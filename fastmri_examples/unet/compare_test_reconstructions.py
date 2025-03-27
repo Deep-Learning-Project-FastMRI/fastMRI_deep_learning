@@ -5,9 +5,8 @@ import numpy as np
 from pathlib import Path
 import xml.etree.ElementTree as etree
 from fastmri.data.mri_data import FastMRIRawDataSample, et_query
-from UnetModuleManual import training_step
 from fastmri import evaluate
-
+from torch.nn import functional as F
 import logging
 import os
 import pickle
@@ -113,9 +112,10 @@ def compute_metrics(target_list, reconstruction_list):
             evaluate.psnr(target[None, ...], reconstruction[None, ...], maxval=maxval)
         )
         nmse = torch.tensor(
-            evaluate.nmse(roi_target[None, ...], roi_reconstruction[None, ...])
+            evaluate.nmse(target[None, ...], reconstruction[None, ...])
         )
-        l1_val = F.l1_loss(roi_target, roi_reconstruction)
+        
+        l1_val = F.l1_loss(torch.Tensor(target), torch.Tensor(reconstruction))
 
         ssim_list.append(ssim)
         pnsr_list.append(psnr)
@@ -132,7 +132,7 @@ def compute_metrics(target_list, reconstruction_list):
 def compute_metrics_roi(target_list, reconstruction_list): 
     # do this function, but only for the ROI (use ananya's function for that)
     ssim_list = []
-    pnsr_list = []
+    psnr_list = []
     nmse_list = []
     l1_loss_list = []
 
@@ -157,7 +157,8 @@ def compute_metrics_roi(target_list, reconstruction_list):
         nmse = torch.tensor(
             evaluate.nmse(roi_target[None, ...], roi_reconstruction[None, ...])
         )
-        l1_val = F.l1_loss(roi_target, roi_reconstruction)
+        
+        l1_val = F.l1_loss(torch.Tensor(roi_target), torch.Tensor(roi_reconstruction))
         
         ssim_list.append(ssim)
         psnr_list.append(psnr)
@@ -165,7 +166,7 @@ def compute_metrics_roi(target_list, reconstruction_list):
         l1_loss_list.append(l1_val)
 
     avg_ssim = np.average(ssim_list)
-    avg_psnr = np.average(pnsr_list)
+    avg_psnr = np.average(psnr_list)
     avg_nmse = np.average(nmse_list)
     avg_l1_loss = np.average(l1_loss_list)
 
