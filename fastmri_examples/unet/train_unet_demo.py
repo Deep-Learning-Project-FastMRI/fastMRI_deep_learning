@@ -18,7 +18,7 @@ import wandb
 from fastmri.data.mri_data import fetch_dir
 from fastmri.data.subsample import create_mask_for_mask_type
 from fastmri.data.transforms import UnetDataTransform
-from fastmri.pl_modules import FastMriDataModule, UnetModule, UnetModuleManual
+from fastmri.pl_modules import FastMriDataModule, UnetModule, UnetModuleManual, UnetModuleHeatmap
 
 
 def cli_main(args):
@@ -83,6 +83,19 @@ def cli_main(args):
             weight_decay=args.weight_decay,
             output_path = pathlib.Path("unet_logging/manual/reconstructions")
         )
+    elif args.experiment_mode == "heatmap":
+        model = UnetModuleHeatmap(
+        in_chans=args.in_chans,
+        out_chans=args.out_chans,
+        chans=args.chans,
+        num_pool_layers=args.num_pool_layers,
+        drop_prob=args.drop_prob,
+        lr=args.lr,
+        lr_step_size=args.lr_step_size,
+        lr_gamma=args.lr_gamma,
+        weight_decay=args.weight_decay,
+        output_path=pathlib.Path("unet_logging/heatmap/reconstructions")
+        )
     else:
         raise ValueError("Invalid experiment mode")
     
@@ -142,7 +155,7 @@ def build_args():
     parser.add_argument(
         "--experiment_mode",
         default="benchmark",
-        choices=("benchmark", "manual"),
+        choices=("benchmark", "manual", "heatmap"),
         type=str,
         help="Operation mode",
     )
