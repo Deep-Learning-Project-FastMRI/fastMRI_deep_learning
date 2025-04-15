@@ -90,32 +90,17 @@ class UnetModuleHeatmap(MriModule):
             drop_prob=self.drop_prob,
         )
         
-    def kspace_to_image(self, kspace):
-        # kspace_complex = torch.view_as_complex(kspace)
-        image = fft.ifft2(kspace)
-        image = torch.abs(image)
-        img_np = image[0].detach().cpu().numpy()
-        # Plot
-        # plt.figure(figsize=(5, 5))
-        # plt.imshow(img_np, cmap='gray')
-        # plt.title("Reconstructed Image from K-space")
-        # plt.axis('off')
-        # plt.savefig(f"recon_image.png")
-        return image
-
-    def forward(self, kspace):
-        image = self.kspace_to_image(kspace)
+    
+    def forward(self, image):
         return self.unet(image.unsqueeze(1)).squeeze(1)
 
+
     def training_step(self, batch, batch_idx):
-        output = self(batch.image)
+        output = self(batch.image) # kspace data is converted to an image in UNetSample
         mean = batch.mean.unsqueeze(1).unsqueeze(2)
         std = batch.std.unsqueeze(1).unsqueeze(2)
-        # input_image = self.kspace_to_image(batch.kspace)
-        # target image comes from applying RSS
 
         # This is from benchmark
-        # Save training outputs
         self.train_outputs[batch.fname[0]].append((batch.slice_num, output * std + mean))
         
         # Calculate loss
