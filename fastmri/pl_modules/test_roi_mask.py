@@ -8,7 +8,7 @@ import os
 # Add the parent directory to the path so we can import modules from there
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Create a simplified version of the UnetModuleHeatmap class just for testing
+# simplified version of the UnetModuleHeatmap class just for testing
 class TestModel:
     def __init__(self, output_path="./test_output"):
         self.output_path = Path(output_path)
