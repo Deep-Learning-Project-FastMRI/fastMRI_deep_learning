@@ -96,57 +96,68 @@ class UnetModuleHeatmap(MriModule):
         return self.unet(image.unsqueeze(1)).squeeze(1)
 
 
-    def training_step(self, batch, batch_idx):
+   def training_step(self, batch, batch_idx):
+        input_image = batch.image.detach().cpu().numpy()[0]
+        
+        roi_mask = self.generate_roi_mask_from_input(input_image, threshold_ratio=0.7)
+        roi_mask_tensor = torch.from_numpy(roi_mask).float().to(batch.image.device)
+        
         output = self(batch.image)
         mean = batch.mean.unsqueeze(1).unsqueeze(2)
         std = batch.std.unsqueeze(1).unsqueeze(2)
 
-        # This is from benchmark
         self.train_outputs[batch.fname[0]].append((batch.slice_num, output * std + mean))
         
-        # Generate error map for ROI detection
-        with torch.no_grad():
-            error_map = torch.abs(output - batch.target).detach().cpu().numpy()[0]
-            
-            # Generate ROI mask
-            roi_mask = self.generate_roi_mask(error_map, threshold_ratio=0.5)
-            roi_mask_tensor = torch.from_numpy(roi_mask).float().to(output.device)
-        
-        # Calculate weighted loss
         loss = self.weighted_loss_function(output, batch.target, roi_mask_tensor, roi_weight=2.0)
         self.log("loss", loss.detach())
         
-        # Return just the loss
+        if batch_idx % 50 == 0:
+            fname = batch.fname[0]
+            slice_num = int(batch.slice_num)
+            self._save_roi_mask(roi_mask, fname, slice_num, "train")
+        
         return loss
 
 
     def validation_step(self, batch, batch_idx):
+        # Get the input image
+        input_image = batch.image.detach().cpu().numpy()[0]
+        
+        # Generate ROI mask from the input image
+        roi_mask = self.generate_roi_mask_from_input(input_image)
+        
+        # Forward pass and other processing
         output = self(batch.image)
         mean = batch.mean.unsqueeze(1).unsqueeze(2)
         std = batch.std.unsqueeze(1).unsqueeze(2)
         self.val_outputs[batch.fname[0]].append((batch.slice_num, output * std + mean))
-        val_loss = F.l1_loss(output, batch.target)
-        self.log("val_loss", val_loss)
+        
+        # Calculate both standard and weighted loss for comparison
+        standard_val_loss = F.l1_loss(output, batch.target)
+        roi_mask_tensor = torch.from_numpy(roi_mask).float().to(output.device)
+        weighted_val_loss = self.weighted_loss_function(output, batch.target, roi_mask_tensor, roi_weight=2.0)
+        
+        # Log both losses
+        self.log("val_loss", standard_val_loss)
+        self.log("weighted_val_loss", weighted_val_loss)
 
-
+        # Save images for visualization
         recon = (output * std + mean).detach().cpu().numpy()[0, ...]
         target = (batch.target * std + mean).detach().cpu().numpy()[0, ...]
-
+        
         error_map = np.abs(recon - target)
         fname = batch.fname[0]
         slice_num = int(batch.slice_num)
 
-        self._original_image(recon,  fname, slice_num, "val", "recon")
+        self._original_image(recon, fname, slice_num, "val", "recon")
         self._original_image(target, fname, slice_num, "val", "target")
+        self._original_image(input_image, fname, slice_num, "val", "input")
         self._heatmap(error_map, fname, slice_num, split="val")
-
-        # Generate and save ROI mask
-        error_map = np.abs(recon - target)
-        roi_mask = self.generate_roi_mask(error_map)
         
         # Save the ROI mask
         self._save_roi_mask(roi_mask, fname, slice_num, "val")
 
+        # Return validation metrics and outputs
         return {
             "batch_idx": batch_idx,
             "fname": batch.fname,
@@ -154,8 +165,9 @@ class UnetModuleHeatmap(MriModule):
             "max_value": batch.max_value,
             "output": output * std + mean,
             "target": batch.target * std + mean,
-            "val_loss": val_loss,
-            "roi_mask": roi_mask  
+            "val_loss": standard_val_loss,
+            "weighted_val_loss": weighted_val_loss,
+            "roi_mask": roi_mask
         }
 
     def _save_roi_mask(self, roi_mask, fname, slice_num, split):
@@ -460,29 +472,41 @@ class UnetModuleHeatmap(MriModule):
         
         return combined_mask
 
-    def generate_roi_mask(self, error_map, threshold_ratio=0.5, use_nms=True, use_hough=True):
+    def generate_roi_mask_from_input(self, input_image, threshold_ratio=0.05):
         """
-        Generate the final ROI mask by combining thresholding, NMS, and Hough transform.
+        Generate ROI mask directly from the input image.
         
         Args:
-            error_map (np.ndarray): The error map/heatmap to process
-            threshold_ratio (float): Threshold ratio for initial mask creation
-            use_nms (bool): Whether to apply NMS-like filtering
-            use_hough (bool): Whether to enhance with Hough line detection
+            input_image (np.ndarray): The input MRI image
+            threshold_ratio (float): Value between 0 and 1 for thresholding
         
         Returns:
-            np.ndarray: Final binary ROI mask
+            np.ndarray: Binary mask where 1 indicates ROI regions
         """
-        # Step 1: Generate initial binary mask through thresholding
-        binary_mask = self._generate_heatmap_mask(error_map, threshold_ratio)
+        # Normalize the input image to 0-1 range
+        if input_image.max() > 0:  # Avoid division by zero
+            normalized_image = input_image / input_image.max()
+        else:
+            normalized_image = input_image.copy()
         
-        # Step 2: Apply NMS to filter small regions (optional)
-        if use_nms:
-            binary_mask = self._apply_nms_to_regions(binary_mask)
+        # Apply gradient magnitude calculation to find edges/features
+        sobel_x = cv2.Sobel(normalized_image, cv2.CV_64F, 1, 0, ksize=3)
+        sobel_y = cv2.Sobel(normalized_image, cv2.CV_64F, 0, 1, ksize=3)
+        gradient_magnitude = np.sqrt(sobel_x**2 + sobel_y**2)
         
-        # Step 3: Enhance with Hough line detection (optional)
-        if use_hough:
-            binary_mask = self._detect_hough_lines(binary_mask)
+        # Apply thresholding to the gradient magnitude
+        threshold = threshold_ratio * gradient_magnitude.max()
+        binary_mask = (gradient_magnitude > threshold).astype(np.uint8)
+        
+        # Apply more gentle morphological operations
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))  # Smaller kernel
+        binary_mask = cv2.morphologyEx(binary_mask, cv2.MORPH_OPEN, kernel)
+        binary_mask = cv2.morphologyEx(binary_mask, cv2.MORPH_CLOSE, kernel)
+        
+        # Apply NMS with smaller minimum region size
+        if binary_mask.sum() > 0:  # Only process if we found some regions
+            binary_mask = self._apply_nms_to_regions(binary_mask, min_region_size=10)
+            binary_mask = self._detect_hough_lines(binary_mask, min_line_length=30, max_line_gap=15)
         
         return binary_mask
 
