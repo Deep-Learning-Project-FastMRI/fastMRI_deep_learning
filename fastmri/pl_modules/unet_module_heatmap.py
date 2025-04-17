@@ -18,6 +18,7 @@ from collections import defaultdict
 import numpy as np
 import fastmri
 import torch.fft as fft
+import cv2
 
 class UnetModuleHeatmap(MriModule):
     """
@@ -118,6 +119,19 @@ class UnetModuleHeatmap(MriModule):
         self.val_outputs[batch.fname[0]].append((batch.slice_num, output * std + mean))
         val_loss = F.l1_loss(output, batch.target)
         self.log("val_loss", val_loss)
+
+
+        recon = (output * std + mean).detach().cpu().numpy()[0, ...]
+        target = (batch.target * std + mean).detach().cpu().numpy()[0, ...]
+
+        error_map = np.abs(recon - target)
+        fname = batch.fname[0]
+        slice_num = int(batch.slice_num)
+
+        self._original_image(recon,  fname, slice_num, "val", "recon")
+        self._original_image(target, fname, slice_num, "val", "target")
+        self._heatmap(error_map, fname, slice_num, split="val")
+
         return {
             "batch_idx": batch_idx,
             "fname": batch.fname,
@@ -143,6 +157,16 @@ class UnetModuleHeatmap(MriModule):
         # print(batch.target)
         test_loss = F.l1_loss(output, batch.target)
         self.log("test_loss", test_loss)
+
+        recon = (output * std + mean).detach().cpu().numpy()[0, ...]
+        target = (batch.target * std + mean).detach().cpu().numpy()[0, ...]
+        error_map = np.abs(recon - target)
+        fname = batch.fname[0]
+        slice_num = int(batch.slice_num)
+
+        self._original_image(recon,  fname, slice_num, "test", "recon")
+        self._original_image(target, fname, slice_num, "test", "target")
+        self._heatmap(error_map, fname, slice_num, split="test")
         
         return {
             "fname": batch.fname,
@@ -278,3 +302,39 @@ class UnetModuleHeatmap(MriModule):
         )
 
         return parser
+
+    def _original_image(self,
+                    img: np.ndarray,
+                    fname: str,
+                    slice_num: int,
+                    split: str,
+                    tag: str):
+
+        img_dir = Path(self.output_path) / "images" / split
+        img_dir.mkdir(parents=True, exist_ok=True)
+
+        img_err = cv2.normalize(
+            img, None,
+            alpha=0, beta=255,
+            norm_type=cv2.NORM_MINMAX,
+            dtype=cv2.CV_8U
+        )
+
+        out_file = img_dir / f"{fname}_slice{slice_num:03d}_{tag}.png"
+        cv2.imwrite(str(out_file), img_err)
+    
+    def _heatmap(self, error_map: np.ndarray, fname: str, slice_num: int, split: str):
+
+        heatmap_dir = Path(self.output_path) / "heatmaps" / split
+        heatmap_dir.mkdir(parents=True, exist_ok=True)
+
+        norm_err = cv2.normalize(
+            error_map, None,
+            alpha=0, beta=255,
+            norm_type=cv2.NORM_MINMAX,
+            dtype=cv2.CV_8U
+        )
+
+        heatmap_bgr = cv2.applyColorMap(norm_err, cv2.COLORMAP_JET)
+        out_file = heatmap_dir / f"{fname}_slice{slice_num:03d}.png"
+        cv2.imwrite(str(out_file), heatmap_bgr)
