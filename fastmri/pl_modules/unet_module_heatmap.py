@@ -17,6 +17,7 @@ from .mri_module import MriModule
 from collections import defaultdict
 import numpy as np
 import fastmri
+from fastmri import evaluate
 import torch.fft as fft
 import cv2
 
@@ -39,7 +40,7 @@ class UnetModuleHeatmap(MriModule):
                 lr_step_size=40,
                 lr_gamma=0.1,
                 weight_decay=0.0,
-                output_path="",
+                output_path="./ROI_generation",
                 **kwargs):
         """
         Args:
@@ -96,7 +97,7 @@ class UnetModuleHeatmap(MriModule):
         return self.unet(image.unsqueeze(1)).squeeze(1)
 
 
-   def training_step(self, batch, batch_idx):
+    def training_step(self, batch, batch_idx):
         input_image = batch.image.detach().cpu().numpy()[0]
         
         roi_mask = self.generate_roi_mask_from_input(input_image, threshold_ratio=0.7)
@@ -111,10 +112,10 @@ class UnetModuleHeatmap(MriModule):
         loss = self.weighted_loss_function(output, batch.target, roi_mask_tensor, roi_weight=2.0)
         self.log("loss", loss.detach())
         
-        if batch_idx % 50 == 0:
-            fname = batch.fname[0]
-            slice_num = int(batch.slice_num)
-            self._save_roi_mask(roi_mask, fname, slice_num, "train")
+        
+        fname = batch.fname[0]
+        slice_num = int(batch.slice_num)
+        self._save_roi_mask(roi_mask, fname, slice_num, "train")
         
         return loss
 
@@ -169,9 +170,10 @@ class UnetModuleHeatmap(MriModule):
             "weighted_val_loss": weighted_val_loss,
             "roi_mask": roi_mask
         }
-
+    # print("hi")
     def _save_roi_mask(self, roi_mask, fname, slice_num, split):
         """Save the ROI mask as an image"""
+        # print("got to save")
         mask_dir = Path(self.output_path) / "roi_masks" / split
         mask_dir.mkdir(parents=True, exist_ok=True)
         
@@ -182,7 +184,13 @@ class UnetModuleHeatmap(MriModule):
         cv2.imwrite(str(out_file), mask_vis)
 
     def test_step(self, batch, batch_idx):
-        # print("HERE")
+        # Get the input image
+        input_image = batch.image.detach().cpu().numpy()[0]
+        
+        # Generate ROI mask from the input image
+        roi_mask = self.generate_roi_mask_from_input(input_image)
+        
+        # Forward pass
         output = self.forward(batch.image)
         mean = batch.mean.unsqueeze(1).unsqueeze(2)
         std = batch.std.unsqueeze(1).unsqueeze(2)
@@ -191,21 +199,24 @@ class UnetModuleHeatmap(MriModule):
         self.test_outputs[batch.fname[0]].append((batch.slice_num, output * std + mean))
         
         # Calculate loss for metrics
-        # print("here output", output.shape)
-        # print("target here", batch.target.shape)
-        # print(batch.target)
         test_loss = F.l1_loss(output, batch.target)
         self.log("test_loss", test_loss)
 
+        # Prepare images for saving
         recon = (output * std + mean).detach().cpu().numpy()[0, ...]
         target = (batch.target * std + mean).detach().cpu().numpy()[0, ...]
         error_map = np.abs(recon - target)
         fname = batch.fname[0]
         slice_num = int(batch.slice_num)
 
-        self._original_image(recon,  fname, slice_num, "test", "recon")
+        # Save images
+        self._original_image(recon, fname, slice_num, "test", "recon")
         self._original_image(target, fname, slice_num, "test", "target")
+        self._original_image(input_image, fname, slice_num, "test", "input")
         self._heatmap(error_map, fname, slice_num, split="test")
+        
+        # Save the ROI mask for test data
+        self._save_roi_mask(roi_mask, fname, slice_num, "test")
         
         return {
             "fname": batch.fname,
@@ -214,6 +225,64 @@ class UnetModuleHeatmap(MriModule):
             "output": (output * std + mean).cpu().numpy(),
             "target": (batch.target * std + mean).cpu().numpy(),
             "test_loss": test_loss,
+        }
+
+    def test_step_end(self, test_logs):
+        # Check inputs
+        for k in (
+            "fname",
+            "slice",
+            "max_value",
+            "output",
+            "target",
+            "test_loss",
+        ):
+            if k not in test_logs.keys():
+                raise RuntimeError(f"Expected key {k} in dict returned by test_step.")
+        
+        # Compute evaluation metrics
+        mse_vals = defaultdict(dict)
+        target_norms = defaultdict(dict)
+        ssim_vals = defaultdict(dict)
+        max_vals = dict()
+        psnr_vals = defaultdict(dict)
+        nmse_vals = defaultdict(dict)
+
+        for i, fname in enumerate(test_logs["fname"]):
+            slice_num = int(test_logs["slice"][i].cpu())
+            maxval = test_logs["max_value"][i].cpu().numpy()
+            output = test_logs["output"][i]
+            target = test_logs["target"][i]
+            
+            mse_vals[fname][slice_num] = torch.tensor(
+                evaluate.mse(target, output)
+            ).view(1)
+            target_norms[fname][slice_num] = torch.tensor(
+                evaluate.mse(target, np.zeros_like(target))
+            ).view(1)
+            ssim_vals[fname][slice_num] = torch.tensor(
+                evaluate.ssim(target[None, ...], output[None, ...], maxval=maxval)
+            ).view(1)
+            psnr_vals[fname][slice_num] = torch.tensor(
+                evaluate.psnr(target, output, maxval=maxval)
+            ).view(1)
+            # Key fix: remove the maxval parameter for nmse
+            nmse_vals[fname][slice_num] = torch.tensor(
+                evaluate.nmse(target, output)  # No maxval parameter here
+            ).view(1)
+
+            max_vals[fname] = maxval
+
+        return {
+            "test_loss": test_logs["test_loss"],
+            "mse_vals": dict(mse_vals),
+            "target_norms": dict(target_norms),
+            "ssim_vals": dict(ssim_vals),
+            "max_vals": max_vals,
+            "fname": test_logs["fname"],
+            "psnr_vals": dict(psnr_vals),
+            "nmse_vals": dict(nmse_vals),
+            "slice": test_logs["slice"]
         }
 
     def training_epoch_end(self, train_losses):
