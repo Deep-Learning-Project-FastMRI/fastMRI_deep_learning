@@ -11,3 +11,4 @@ from .unet_module import UnetModule
 from .unet_module_manual import UnetModuleManual
 from .unet_module_heatmap import UnetModuleHeatmap
 from .varnet_module import VarNetModule
+from .unet_module_attention import UnetAttentionModule

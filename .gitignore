@@ -39,3 +39,4 @@ benchmark_test_reconstructions_2.tar.gz
 manual_test_reconstructions_2.tar.gz
 fastmri_examples/unet/manual_test.log
 fastmri_examples/unet/manual_train.log
+fastmri_examples/unet/attention.log
