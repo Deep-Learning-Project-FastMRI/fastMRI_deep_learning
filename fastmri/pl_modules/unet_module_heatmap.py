@@ -12,6 +12,7 @@ import torch
 from torch.nn import functional as F
 import matplotlib.pyplot as plt
 from fastmri.models import Unet
+import csv
 
 from .mri_module import MriModule
 from collections import defaultdict
@@ -172,16 +173,22 @@ class UnetModuleHeatmap(MriModule):
         }
     # print("hi")
     def _save_roi_mask(self, roi_mask, fname, slice_num, split):
-        """Save the ROI mask as an image"""
-        # print("got to save")
-        mask_dir = Path(self.output_path) / "roi_masks" / split
-        mask_dir.mkdir(parents=True, exist_ok=True)
+        """Save the ROI mask as both an image and a numpy array"""
+        # Create directories for both image and numpy versions
+        mask_dir_img = Path(self.output_path) / "roi_masks" / split / "images"
+        mask_dir_npy = Path(self.output_path) / "roi_masks" / split / "numpy"
         
-        # Convert mask to appropriate visualization format (0-255)
+        mask_dir_img.mkdir(parents=True, exist_ok=True)
+        mask_dir_npy.mkdir(parents=True, exist_ok=True)
+        
+        # Save as PNG image for visualization (original functionality)
         mask_vis = (roi_mask * 255).astype(np.uint8)
+        img_file = mask_dir_img / f"{fname}_slice{slice_num:03d}_roi_mask.png"
+        cv2.imwrite(str(img_file), mask_vis)
         
-        out_file = mask_dir / f"{fname}_slice{slice_num:03d}_roi_mask.png"
-        cv2.imwrite(str(out_file), mask_vis)
+        # Save as numpy array for metrics calculation
+        npy_file = mask_dir_npy / f"{fname}_slice{slice_num:03d}_roi_mask.npy"
+        np.save(str(npy_file), roi_mask)
 
     def test_step(self, batch, batch_idx):
         # Get the input image
@@ -228,7 +235,6 @@ class UnetModuleHeatmap(MriModule):
         }
 
     def test_step_end(self, test_logs):
-        # Check inputs
         for k in (
             "fname",
             "slice",
@@ -240,13 +246,17 @@ class UnetModuleHeatmap(MriModule):
             if k not in test_logs.keys():
                 raise RuntimeError(f"Expected key {k} in dict returned by test_step.")
         
-        # Compute evaluation metrics
         mse_vals = defaultdict(dict)
         target_norms = defaultdict(dict)
         ssim_vals = defaultdict(dict)
         max_vals = dict()
         psnr_vals = defaultdict(dict)
         nmse_vals = defaultdict(dict)
+        
+        roi_mse_vals = defaultdict(dict)
+        roi_ssim_vals = defaultdict(dict)
+        roi_psnr_vals = defaultdict(dict)
+        roi_nmse_vals = defaultdict(dict)
 
         for i, fname in enumerate(test_logs["fname"]):
             slice_num = int(test_logs["slice"][i].cpu())
@@ -266,12 +276,45 @@ class UnetModuleHeatmap(MriModule):
             psnr_vals[fname][slice_num] = torch.tensor(
                 evaluate.psnr(target, output, maxval=maxval)
             ).view(1)
-            # Key fix: remove the maxval parameter for nmse
             nmse_vals[fname][slice_num] = torch.tensor(
-                evaluate.nmse(target, output)  # No maxval parameter here
+                evaluate.nmse(target, output)
             ).view(1)
 
             max_vals[fname] = maxval
+            
+            roi_mask_path = Path(self.output_path) / "roi_masks" / "test" / "numpy" / f"{fname}_slice{slice_num:03d}_roi_mask.npy"
+            if roi_mask_path.exists():
+                roi_mask = np.load(str(roi_mask_path))
+
+                mask_bool = roi_mask.astype(bool)
+                
+                # Extract only the ROI pixels from output and target
+                target_roi = target[mask_bool]
+                output_roi = output[mask_bool]
+                
+                # Skip ROI metrics if the mask is empty
+                if mask_bool.sum() > 0:
+                    # Calculate ROI-specific metrics
+                    roi_mse_vals[fname][slice_num] = torch.tensor(
+                        evaluate.mse(target_roi, output_roi)
+                    ).view(1)
+                    
+                    roi_ssim_vals[fname][slice_num] = torch.tensor(
+                        evaluate.ssim(target[None, ...] * roi_mask, output[None, ...] * roi_mask, maxval=maxval)
+                    ).view(1)
+                    
+                    roi_psnr_vals[fname][slice_num] = torch.tensor(
+                        evaluate.psnr(target_roi, output_roi, maxval=maxval)
+                    ).view(1)
+                    
+                    roi_nmse_vals[fname][slice_num] = torch.tensor(
+                        evaluate.nmse(target_roi, output_roi)
+                    ).view(1)
+                else:
+                    roi_mse_vals[fname][slice_num] = torch.tensor(float('nan')).view(1)
+                    roi_ssim_vals[fname][slice_num] = torch.tensor(float('nan')).view(1)
+                    roi_psnr_vals[fname][slice_num] = torch.tensor(float('nan')).view(1)
+                    roi_nmse_vals[fname][slice_num] = torch.tensor(float('nan')).view(1)
 
         return {
             "test_loss": test_logs["test_loss"],
@@ -282,7 +325,12 @@ class UnetModuleHeatmap(MriModule):
             "fname": test_logs["fname"],
             "psnr_vals": dict(psnr_vals),
             "nmse_vals": dict(nmse_vals),
-            "slice": test_logs["slice"]
+            "slice": test_logs["slice"],
+            # Add ROI metrics to the returned dictionary
+            "roi_mse_vals": dict(roi_mse_vals),
+            "roi_ssim_vals": dict(roi_ssim_vals),
+            "roi_psnr_vals": dict(roi_psnr_vals),
+            "roi_nmse_vals": dict(roi_nmse_vals)
         }
 
     def training_epoch_end(self, train_losses):
@@ -331,7 +379,73 @@ class UnetModuleHeatmap(MriModule):
     def test_epoch_end(self, outputs):
         # Call the parent class implementation for metric calculation
         super().test_epoch_end(outputs)
+        
+        # Process ROI metrics
+        metrics = {"test/nmse": [], "test/ssim": [], "test/psnr": [], 
+                "test/roi_nmse": [], "test/roi_ssim": [], "test/roi_psnr": []}
+        
+        for log in outputs:
+            for metric in ["nmse_vals", "ssim_vals", "psnr_vals", 
+                        "roi_nmse_vals", "roi_ssim_vals", "roi_psnr_vals"]:
+                if metric not in log:
+                    continue
+                    
+                for fname in log[metric]:
+                    for slice_num in log[metric][fname]:
+                        val = log[metric][fname][slice_num]
+                        
+                        # Skip NaN values (empty ROIs)
+                        if torch.isnan(val).any():
+                            continue
+                            
+                        metrics_key = f"test/{metric.replace('_vals', '')}"
+                        metrics[metrics_key].append(val)
+        
+        # Initialize mean_metrics dictionary
+        mean_metrics = {}
+        
+        # Calculate mean values for all metrics
+        for metric, vals in metrics.items():
+            if vals:
+                mean_val = torch.mean(torch.cat(vals)).item()
+                mean_metrics[metric.replace('test/', '')] = mean_val
+                self.log(metric, torch.tensor(mean_val))
+        
+        # Explicit WandB logging
+        if self.logger and hasattr(self.logger, "experiment") and hasattr(self.logger.experiment, "log"):
+            self.logger.experiment.log({
+                "test/roi_nmse": mean_metrics.get('roi_nmse', 0.0),
+                "test/roi_psnr": mean_metrics.get('roi_psnr', 0.0),
+                "test/roi_ssim": mean_metrics.get('roi_ssim', 0.0)
+            })
+        
+        # Save metrics to CSV file
+        metrics_dir = Path(self.output_path) / "metrics"
+        metrics_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Create or append to test_metrics.csv
+        metrics_file = metrics_dir / "test_metrics.csv"
+        
+        # Check if file exists to determine if we need to write headers
+        file_exists = metrics_file.exists()
+        
+        with open(metrics_file, 'a' if file_exists else 'w', newline='') as f:
+            fieldnames = ['epoch', 'nmse', 'ssim', 'psnr', 'roi_nmse', 'roi_psnr', 'roi_ssim']
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
             
+            if not file_exists:
+                writer.writeheader()
+            
+            writer.writerow({
+                'epoch': self.current_epoch,
+                'nmse': mean_metrics.get('nmse', 0.0),
+                'ssim': mean_metrics.get('ssim', 0.0),
+                'psnr': mean_metrics.get('psnr', 0.0),
+                'roi_nmse': mean_metrics.get('roi_nmse', 0.0),
+                'roi_psnr': mean_metrics.get('roi_psnr', 0.0),
+                'roi_ssim': mean_metrics.get('roi_ssim', 0.0)
+            })
+        
         # Save test reconstructions
         for fname in self.test_outputs:
             self.test_outputs[fname] = np.stack([
