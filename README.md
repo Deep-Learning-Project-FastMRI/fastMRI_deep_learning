@@ -83,27 +83,27 @@ downloaded from the [fastMRI dataset page](https://fastmri.med.nyu.edu/).
 - Start training the model by running python train_unet_demo.py
 
 ### For benchmark Train, Test, Val
-python train_unet_demo.py --experiment_mode=benchmark --mode=train
-python train_unet_demo.py --experiment_mode=benchmark --mode=test
-python train_unet_demo.py --experiment_mode=benchmark --mode=val
+- python train_unet_demo.py --experiment_mode=benchmark --mode=train
+- python train_unet_demo.py --experiment_mode=benchmark --mode=test
+- python train_unet_demo.py --experiment_mode=benchmark --mode=val
 
 ### For manual Train, Test, Val
-python train_unet_demo.py --experiment_mode=manual --mode=train
-python train_unet_demo.py --experiment_mode=manual --mode=test
-python train_unet_demo.py --experiment_mode=manual --mode=val
+- python train_unet_demo.py --experiment_mode=manual --mode=train
+- python train_unet_demo.py --experiment_mode=manual --mode=test
+- python train_unet_demo.py --experiment_mode=manual --mode=val
 
 ### For heatmap Train, Test, Val
-python train_unet_demo.py --experiment_mode=heatmap --mode=train
-python train_unet_demo.py --experiment_mode=heatmap --mode=test
-python train_unet_demo.py --experiment_mode=heatmap --mode=val
+- python train_unet_demo.py --experiment_mode=heatmap --mode=train
+- python train_unet_demo.py --experiment_mode=heatmap --mode=test
+- python train_unet_demo.py --experiment_mode=heatmap --mode=val
 
 ### For Attention train, Test, Val
-python train_unet_demo.py --experiment_mode=attention --mode=train
-python train_unet_demo.py --experiment_mode=attention --mode=test
-python train_unet_demo.py --experiment_mode=attention --mode=val
+- python train_unet_demo.py --experiment_mode=attention --mode=train
+- python train_unet_demo.py --experiment_mode=attention --mode=test
+- python train_unet_demo.py --experiment_mode=attention --mode=val
 
 ### Running any command in the background
-nohup python -u train_unet_demo.py --mode "MODE" --experiment_mode "EXPERIMENT" > "LOG_FILE_NAME".log 2>&1 &
+- nohup python -u train_unet_demo.py --mode "MODE" --experiment_mode "EXPERIMENT" > "LOG_FILE_NAME".log 2>&1 &
 
 
 
