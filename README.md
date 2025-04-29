@@ -1,4 +1,8 @@
-# fastMRI
+# fastMRI deep learning
+
+The field of MRI reconstruction has previously utilized deep learning techniques to produce high-quality MRI images from raw MRI data, reducing the amount of time to produce an MRI image. These reconstruction techniques optimize for the entire image at once, however, for medical professionals, the MRI reconstruction must have a high quality in diagnostically relevant regions. Therefore, our work introduces methods for improving region-specific MRI reconstruction for diagnostic quality. These changes ensure that the diagnostically relevant regions of interest have greater importance and quality during MRI reconstruction.
+
+### Based on
 
 [![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/facebookresearch/fastMRI/blob/master/LICENSE.md)
 [![Build and Test](https://github.com/facebookresearch/fastMRI/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/facebookresearch/fastMRI/actions/workflows/build-and-test.yml)
@@ -8,11 +12,6 @@
 [GitHub](https://github.com/facebookresearch/fastMRI) |
 [Publications](#list-of-papers)
 
-Accelerating Magnetic Resonance Imaging (MRI) by acquiring fewer measurements
-has the potential to reduce medical costs, minimize stress to patients and make
-MR imaging possible in applications where it is currently prohibitively slow or
-expensive.
-
 [fastMRI](https://fastMRI.org) is a collaborative research project from
 Facebook AI Research (FAIR) and NYU Langone Health to investigate the use of AI
 to make MRI scans faster. NYU Langone Health has released fully anonymized knee
@@ -20,13 +19,6 @@ and brain MRI datasets that can be downloaded from
 [the fastMRI dataset page](https://fastmri.med.nyu.edu/). Publications
 associated with the fastMRI project can be found
 [at the end of this README](#list-of-papers).
-
-This repository contains convenient PyTorch data loaders, subsampling
-functions, evaluation metrics, and reference implementations of simple baseline
-methods. It also contains implementations for methods in some of the
-publications of the fastMRI project.
-
-## Documentation
 
 ### The fastMRI Dataset
 
