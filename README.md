@@ -2,6 +2,8 @@
 
 The field of MRI reconstruction has previously utilized deep learning techniques to produce high-quality MRI images from raw MRI data, reducing the amount of time to produce an MRI image. These reconstruction techniques optimize for the entire image at once, however, for medical professionals, the MRI reconstruction must have a high quality in diagnostically relevant regions. Therefore, our work introduces methods for improving region-specific MRI reconstruction for diagnostic quality. These changes ensure that the diagnostically relevant regions of interest have greater importance and quality during MRI reconstruction.
 
+# Experiment results:
+Available at the following link: https://wandb.ai/ebruda01-georgia-institute-of-technology/deep_learning_fastmri_project/table?nw=nwuserebruda01
 ### Based on
 
 [![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/facebookresearch/fastMRI/blob/master/LICENSE.md)
@@ -26,7 +28,7 @@ There are multiple publications describing different subcomponents of the data
 (e.g., brain vs. knee) and associated baselines. All of the fastMRI data can be
 downloaded from the [fastMRI dataset page](https://fastmri.med.nyu.edu/).
 
-* **Project Summary, Datasets, Baselines:** [fastMRI: An Open Dataset and Benchmarks for Accelerated MRI ({J. Zbontar*, F. Knoll*, A. Sriram*} et al., 2018)](https://arxiv.org/abs/1811.08839)
+* **Meta Project Summary, Datasets, Baselines:** [fastMRI: An Open Dataset and Benchmarks for Accelerated MRI ({J. Zbontar*, F. Knoll*, A. Sriram*} et al., 2018)](https://arxiv.org/abs/1811.08839)
 
 * **Knee Data:** [fastMRI: A Publicly Available Raw k-Space and DICOM Dataset of Knee Images for Accelerated MR Image Reconstruction Using Machine Learning ({F. Knoll*, J. Zbontar*} et al., 2020)](https://doi.org/10.1148/ryai.2020190007)
 
@@ -99,12 +101,6 @@ downloaded from the [fastMRI dataset page](https://fastmri.med.nyu.edu/).
 
 
 
-**NOTICE:** As documented in [Discussion 293](https://github.com/facebookresearch/fastMRI/discussions/293),
-the fastmri.org domain was transferred from Meta ownership to NYU ownership on
-2023-04-17, and NYU has not yet rebuilt the site. Until the site and
-leaderbaords are rebuilt by NYU, leaderboards will be unavailable. Mitigations
-are presented in [Discussion 293](https://github.com/facebookresearch/fastMRI/discussions/293).
-
 ## License
 
 fastMRI is MIT licensed, as found in the [LICENSE file](https://github.com/facebookresearch/fastMRI/tree/master/LICENSE.md).
@@ -138,28 +134,4 @@ paper:
   year={2023}
 }
 ```
-
-## List of Papers
-
-The following lists titles of papers from the fastMRI project. The
-corresponding abstracts, as well as links to preprints and code can be found
-[here](https://github.com/facebookresearch/fastMRI/tree/master/LIST_OF_PAPERS.md).
-
-1. Zbontar, J.\*, Knoll, F.\*, Sriram, A.\*, Murrell, T., Huang, Z., Muckley, M. J., ... & Lui, Y. W. (2018). [fastMRI: An Open Dataset and Benchmarks for Accelerated MRI](https://arxiv.org/abs/1811.08839). *arXiv preprint arXiv:1811.08839*.
-2. Zhang, Z., Romero, A., Muckley, M. J., Vincent, P., Yang, L., & Drozdzal, M. (2019). [Reducing uncertainty in undersampled MRI reconstruction with active acquisition](https://openaccess.thecvf.com/content_CVPR_2019/html/Zhang_Reducing_Uncertainty_in_Undersampled_MRI_Reconstruction_With_Active_Acquisition_CVPR_2019_paper.html). In *CVPR*, pages 2049-2058.
-3. Defazio, A. (2019). [Offset Sampling Improves Deep Learning based Accelerated MRI Reconstructions by Exploiting Symmetry](https://arxiv.org/abs/1912.01101). *arXiv preprint, arXiv:1912.01101*.
-4. Knoll, F.\*, Zbontar, J.\*, Sriram, A., Muckley, M. J., Bruno, M., Defazio, A., ... & Lui, Y. W. (2020). [fastMRI: A Publicly Available Raw k-Space and DICOM Dataset of Knee Images for Accelerated MR Image Reconstruction Using Machine Learning](https://doi.org/10.1148/ryai.2020190007). *Radiology: Artificial Intelligence*, 2(1), page e190007.
-5. Knoll, F.\*, Murrell, T.\*, Sriram, A.\*, Yakubova, N., Zbontar, J., Rabbat, M., ... & Recht, M. P. (2020). [Advancing machine learning for MR image reconstruction with an open competition: Overview of the 2019 fastMRI challenge](https://doi.org/10.1002/mrm.28338). *Magnetic Resonance in Medicine*, 84(6), pages 3054-3070.
-6. Sriram, A., Zbontar, J., Murrell, T., Zitnick, C. L., Defazio, A., & Sodickson, D. K. (2020). [GrappaNet: Combining parallel imaging with deep learning for multi-coil MRI reconstruction](https://openaccess.thecvf.com/content_CVPR_2020/html/Sriram_GrappaNet_Combining_Parallel_Imaging_With_Deep_Learning_for_Multi-Coil_MRI_CVPR_2020_paper.html). In *CVPR*, pages 14315-14322.
-7. Recht, M. P., Zbontar, J., Sodickson, D. K., Knoll, F., Yakubova, N., Sriram, A., ... & Zitnick, C. L. (2020). [Using Deep Learning to Accelerate Knee MRI at 3T: Results of an Interchangeability Study](https://doi.org/10.2214/AJR.20.23313). *American Journal of Roentgenology*, 215(6), pages 1421-1429.
-8. Pineda, L., Basu, S., Romero, A., Calandra, R., & Drozdzal, M. (2020). [Active MR k-space Sampling with Reinforcement Learning](https://doi.org/10.1007/978-3-030-59713-9_3). In *MICCAI*, pages 23-33.
-9. Sriram, A.\*, Zbontar, J.\*, Murrell, T., Defazio, A., Zitnick, C. L., Yakubova, N., ... & Johnson, P. (2020). [End-to-End Variational Networks for Accelerated MRI Reconstruction](https://doi.org/10.1007/978-3-030-59713-9_7). In *MICCAI*, pages 64-73.
-10. Defazio, A., Murrell, T., & Recht, M. P. (2020). [MRI Banding Removal via Adversarial Training](https://papers.nips.cc/paper/2020/hash/567b8f5f423af15818a068235807edc0-Abstract.html). In *Advances in Neural Information Processing Systems*, 33, pages 7660-7670.
-11. Muckley, M. J.\*, Riemenschneider, B.\*, Radmanesh, A., Kim, S., Jeong, G., Ko, J., ... & Knoll, F. (2021). [Results of the 2020 fastMRI Challenge for Machine Learning MR Image Reconstruction](https://doi.org/10.1109/TMI.2021.3075856). *IEEE Transactions on Medical Imaging*, 40(9), pages 2306-2317.
-12. Johnson, P. M., Jeong, G., Hammernik, K., Schlemper, J., Qin, C., Duan, J., ..., & Knoll, F. (2021). [Evaluation of the Robustness of Learned MR Image Reconstruction to Systematic Deviations Between Training and Test Data for the Models from the fastMRI Challenge](https://doi.org/10.1007/978-3-030-88552-6_3). In *MICCAI MLMIR Workshop*, pages 25–34,
-13. Bakker, T., Muckley, M.J., Romero-Soriano, A., Drozdzal, M. & Pineda, L. (2022). [On learning adaptive acquisition policies for undersampled multi-coil MRI reconstruction](https://proceedings.mlr.press/v172/bakker22a). In *MIDL*, pages 63-85.
-14. Radmanesh, A.\*, Muckley, M. J.\*, Murrell, T., Lindsey, E., Sriram, A., Knoll, F., ... & Lui, Y. W. (2022). [Exploring the Acceleration Limits of Deep Learning VarNet-based Two-dimensional Brain MRI](https://doi.org/10.1148/ryai.210313). *Radiology: Artificial Intelligence*, 4(6), page e210313.
-15. Johnson, P.M., Lin, D.J., Zbontar, J., Zitnick, C.L., Sriram, A., Muckley, M., Babb, J.S., Kline, M., Ciavarra, G., Alaia, E., ..., & Knoll, F. (2023). [Deep Learning Reconstruction Enables Prospectively Accelerated Clinical Knee MRI](https://doi.org/10.1148/radiol.220425). *Radiology*, 307(2), page e220425.
-16. Tibrewala, R., Dutt, T., Tong, A., Ginocchio, L., Keerthivasan, M.B., Baete, S.H., Lui, Y.W., Sodickson, D.K., Chandarana, H., Johnson, P.M. (2023). [FastMRI Prostate: A Publicly Available, Biparametric MRI Dataset to Advance Machine Learning for Prostate Cancer Imaging](https://arxiv.org/abs/2304.09254). *arXiv preprint, arXiv:2034.09254*.
-16. Giannakopoulos, I. I., Muckley, M. J., Kim, J., Breen, M., Johnson, P. M., Lui, Y. W., Lattanzi, R. (2024). [Accelerated MRI reconstructions via variational network and feature domain learning. Scientific Reports](https://www.nature.com/articles/s41598-024-59705-0). *Scientific Reports, 14(1), 10991*.
 
