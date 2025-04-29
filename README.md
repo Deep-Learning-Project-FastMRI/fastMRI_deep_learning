@@ -42,114 +42,70 @@ downloaded from the [fastMRI dataset page](https://fastmri.med.nyu.edu/).
 
 * **Prostate Data:** [FastMRI Prostate: A Publicly Available, Biparametric MRI Dataset to Advance Machine Learning for Prostate Cancer Imaging (Tibrewala et al., 2023)](https://arxiv.org/abs/2304.09254)
 
-### Code Repository
+## Running the project
+### Pace Access
+- Connect to the Georgia Tech VPN using GlobalProtect or https://vpn.gatech.edu/ 
+- Go to https://ondemand-ice.pace.gatech.edu/pun/sys/dashboard/
+- Click on Interactive Apps
+- Click on Visual Studio Code
+- Request a GPU (Ideally an NVIDIA H100 or H200 but any NVIDIA GPU works as well)
+- Click request and then wait to connect
 
-For code documentation, most functions and classes have accompanying docstrings
-that you can access via the `help` function in IPython. For example:
+### Conda setup
 
-```python
-from fastmri.data import SliceDataset
+- If you haven’t set up conda before for your PACE account follow the steps below. If not, skip to step #2
+  - Go to your home directory /hice1/userId
+  - Follow the steps here to download miniconda3: https://www.anaconda.com/docs/getting-started/miniconda/install#macos-linux-installation 
+  - Check that the installation worked by typing conda in the terminal
+- Link to your conda environment to your scratch folder. This is important since the packages take up so much space
+  - Tutorial here: https://gatech.service-now.com/home?id=kb_article_view&sysparm_article=KB0041621 
+  - Note: for the p-<pi-username>-<number> mentioned, use your gt username like ebruda3
+- Setup the environment for this project
+  - Create the conda environment by running conda env create -f dl_environment.yml
+  - Activate the environment
+  - If you haven’t done this yet, run pip install -e .
+    - This installs the fastmri project
 
-help(SliceDataset)
-```
 
-## Dependencies and Installation
+### File Setup
+- Clone the following Github repo and put it in your scratch folder (ex: ebruda3/scratch) https://github.com/Deep-Learning-Project-FastMRI/fastMRI_deep_learning 
+  - Make sure you clone so you can do a git push later
+- Download the dataset zip files by running the curl commands from the NYU email
+- Extract each of the .tar files by running these commands:
+  - tar -xf knee_singlecoil_[training_mode].tar.xz
+- Put all of the files in a data folder. Ex: ebruda3/scratch/fastmri_deep_learning/data/
 
-**Note:** Contributions to the code are continuously tested via GitHub actions.
-If you encounter an issue, the best first thing to do is to try to match the
-`tests` environment in `setup.cfg`, e.g., `pip install --editable ".[tests]"`
-when installing from source.
+### Training the model
+- cd into fastmri_deep_learning/fastmri_examples/unet/
+- Activate the dl_proj_2 conda environment 
+- Change the knee_path in the fastmri_dirs.yaml file to be wherever your data is saved
+  - Ex: knee_path: "/home/hice1/ebruda3/scratch/fastMRI_deep_learning/data/"
+- Start training the model by running python train_unet_demo.py
 
-**Note:** As documented in [Issue 215](https://github.com/facebookresearch/fastMRI/issues/215),
-there is currently a memory leak when using `h5py` installed from `pip` and
-converting to a `torch.Tensor`. To avoid the leak, you need to use `h5py` with
-a version of HDF5 before 1.12.1. As of February 16, 2022, the `conda` version
-of `h5py` 3.6.0 used HDF5 1.10.6, which avoids the leak.
+### For benchmark Train, Test, Val
+python train_unet_demo.py --experiment_mode=benchmark --mode=train
+python train_unet_demo.py --experiment_mode=benchmark --mode=test
+python train_unet_demo.py --experiment_mode=benchmark --mode=val
 
-First install PyTorch according to the directions at the
-[PyTorch Website](https://pytorch.org/get-started/) for your operating system
-and CUDA setup. Then, run
+### For manual Train, Test, Val
+python train_unet_demo.py --experiment_mode=manual --mode=train
+python train_unet_demo.py --experiment_mode=manual --mode=test
+python train_unet_demo.py --experiment_mode=manual --mode=val
 
-```bash
-pip install fastmri
-```
+### For heatmap Train, Test, Val
+python train_unet_demo.py --experiment_mode=heatmap --mode=train
+python train_unet_demo.py --experiment_mode=heatmap --mode=test
+python train_unet_demo.py --experiment_mode=heatmap --mode=val
 
-`pip` will handle all package dependencies. After this you should be able to
-run most of the code in the repository.
+### For Attention train, Test, Val
+python train_unet_demo.py --experiment_mode=attention --mode=train
+python train_unet_demo.py --experiment_mode=attention --mode=test
+python train_unet_demo.py --experiment_mode=attention --mode=val
 
-### Installing Directly from Source
+### Running any command in the background
+nohup python -u train_unet_demo.py --mode "MODE" --experiment_mode "EXPERIMENT" > "LOG_FILE_NAME".log 2>&1 &
 
-If you want to install directly from the GitHub source, clone the repository,
-navigate to the `fastmri` root directory and run
 
-```bash
-pip install -e .
-```
-
-## Package Structure & Usage
-
-The repository is centered around the `fastmri` module. The following breaks
-down the basic structure:
-
-`fastmri`: Contains a number of basic tools for complex number math, coil
-combinations, etc.
-
-* `fastmri.data`: Contains data utility functions from original `data` folder
-that can be used to create sampling masks and submission files.
-* `fastmri.models`: Contains reconstruction models, such as the U-Net and
-VarNet.
-* `fastmri.pl_modules`: PyTorch Lightning modules for data loading, training,
-and logging.
-
-## Examples and Reproducibility
-
-The `fastmri_examples` and `banding_removal` folders include code for
-reproducibility. The baseline models were used in the [arXiv paper](https://arxiv.org/abs/1811.08839).
-
-A brief summary of implementions based on papers with links to code follows.
-For completeness we also mention work on active acquisition, which is hosted
-in another repository.
-
-* **Baseline Models**
-
-  * [Zero-filled examples for saving images for leaderboard submission](https://github.com/facebookresearch/fastMRI/tree/master/fastmri_examples/zero_filled/)
-  * [ESPIRiT—an eigenvalue approach to autocalibrating parallel MRI: where SENSE meets GRAPPA (M. Uecker et al., 2013)](https://github.com/facebookresearch/fastMRI/tree/master/fastmri_examples/cs/)
-  * [U-Net: Convolutional networks for biomedical image segmentation (O. Ronneberger et al., 2015)](https://github.com/facebookresearch/fastMRI/tree/master/fastmri_examples/unet/)
-
-* **Sampling, Reconstruction and Artifact Correction**
-
-  * [Offset Sampling Improves Deep Learning based Accelerated MRI Reconstructions by Exploiting Symmetry (A. Defazio, 2019)](https://github.com/facebookresearch/fastMRI/blob/8abe6eaeeb3d4504f26dc77adffb02a4be41d6f4/fastmri/data/subsample.py#L344-L475)
-  * [End-to-End Variational Networks for Accelerated MRI Reconstruction ({A. Sriram*, J. Zbontar*} et al., 2020)](https://github.com/facebookresearch/fastMRI/tree/master/fastmri_examples/varnet/)
-  * [MRI Banding Removal via Adversarial Training (A. Defazio, et al., 2020)](https://github.com/facebookresearch/fastMRI/tree/master/banding_removal)
-  * [Deep Learning Reconstruction Enables Prospectively Accelerated Clinical Knee MRI (P. Johnson et al., 2023)](https://github.com/facebookresearch/fastMRI/tree/main/fastmri_examples/RadiologyJohnson2022)
-  * [Accelerated MRI reconstructions via variational network and feature domain learning (I. Giannakopoulos et al., 2024)](https://github.com/facebookresearch/fastMRI/tree/main/fastmri_examples/feature_varnet)
-
-* **Active Acquisition**
-  * (external repository) [Reducing uncertainty in undersampled MRI reconstruction with active acquisition (Z. Zhang et al., 2019)](https://github.com/facebookresearch/active-mri-acquisition/tree/master/activemri/experimental/cvpr19_models)
-  * (external repository) [Active MR k-space Sampling with Reinforcement Learning (L. Pineda et al., 2020)](https://github.com/facebookresearch/active-mri-acquisition)
-  * [On learning adaptive acquisition policies for undersampled multi-coil MRI reconstruction (T. Bakker et al., 2022)](https://github.com/facebookresearch/fastMRI/tree/main/fastmri_examples/adaptive_varnet/)
-
-* **Prostate Data**
-  * (external respository) [FastMRI Prostate: A Publicly Available, Biparametric MRI Dataset to Advance Machine Learning for Prostate Cancer Imaging (Tibrewala et al., 2023)](https://github.com/cai2r/fastMRI_prostate)
-
-## Testing
-
-Run `pytest tests`. By default integration tests that use the fastMRI data are
-skipped. If you would like to run these tests, set `SKIP_INTEGRATIONS` to
-`False` in the [conftest](https://github.com/facebookresearch/fastMRI/tree/master/tests/conftest.py).
-
-## Training a model
-
-The [data README](https://github.com/facebookresearch/fastMRI/tree/master/fastmri/data/README.md) has a bare-bones example for how to
-load data and incorporate data transforms. This
-[jupyter notebook](https://github.com/facebookresearch/fastMRI/tree/master/fastMRI_tutorial.ipynb) contains a simple tutorial
-explaining how to get started working with the data.
-
-Please look at
-[this U-Net demo script](https://github.com/facebookresearch/fastMRI/tree/master/fastmri_examples/unet/train_unet_demo.py) for an
-example of how to train a model using the PyTorch Lightning framework.
-
-## Submitting to the Leaderboard
 
 **NOTICE:** As documented in [Discussion 293](https://github.com/facebookresearch/fastMRI/discussions/293),
 the fastmri.org domain was transferred from Meta ownership to NYU ownership on
