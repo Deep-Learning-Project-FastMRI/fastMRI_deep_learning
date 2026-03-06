@@ -64,10 +64,10 @@ downloaded from the [fastMRI dataset page](https://fastmri.med.nyu.edu/).
 ### File Setup
 - Clone the following Github repo and put it in your scratch folder (ex: ebruda3/scratch) https://github.com/Deep-Learning-Project-FastMRI/fastMRI_deep_learning 
   - Make sure you clone so you can do a git push later
-- Download the dataset zip files by running the curl commands from the NYU email
-- Extract each of the .tar files by running these commands:
-  - tar -xf knee_singlecoil_[training_mode].tar.xz
-- Put all of the files in a data folder. Ex: ebruda3/scratch/fastmri_deep_learning/data/
+- Sign up to download the dataset files from NYU https://datacatalog.med.nyu.edu/dataset/10389
+- Download the dataset zip files by running the curl commands from the NYU instructions
+- (Optional) `subsample_files.py` to subsample the training, validation, and test data depending on available storage
+- Put all of the files in a data folder. Ex: `ebruda3/scratch/fastmri_deep_learning/data/{train/val/test}`
 
 ### Training the model
 - cd into fastmri_deep_learning/fastmri_examples/unet/
@@ -99,16 +99,11 @@ downloaded from the [fastMRI dataset page](https://fastmri.med.nyu.edu/).
 ### Running any command in the background
 - nohup python -u train_unet_demo.py --mode "MODE" --experiment_mode "EXPERIMENT" > "LOG_FILE_NAME".log 2>&1 &
 
-
-
 ## License
 
 fastMRI is MIT licensed, as found in the [LICENSE file](https://github.com/facebookresearch/fastMRI/tree/master/LICENSE.md).
 
-## Cite
-
-If you use the fastMRI data or code in your project, please cite the arXiv
-paper:
+## References:
 
 ```BibTeX
 @misc{zbontar2018fastMRI,
@@ -121,17 +116,4 @@ paper:
 }
 ```
 
-If you use the fastMRI prostate data or code in your project, please cite that
-paper:
-
-```BibTeX
-@misc{tibrewala2023fastmri,
-  title={{FastMRI Prostate}: A Publicly Available, Biparametric {MRI} Dataset to Advance Machine Learning for Prostate Cancer Imaging},
-  author={Tibrewala, Radhika and Dutt, Tarun and Tong, Angela and Ginocchio, Luke and Keerthivasan, Mahesh B and Baete, Steven H and Chopra, Sumit and Lui, Yvonne W and Sodickson, Daniel K and Chandarana, Hersh and Johnson, Patricia M},
-  journal = {ArXiv e-prints},
-  archivePrefix = "arXiv",
-  eprint={2304.09254},
-  year={2023}
-}
-```
 
